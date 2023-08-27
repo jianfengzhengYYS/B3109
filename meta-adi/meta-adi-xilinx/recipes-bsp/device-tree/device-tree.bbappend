@@ -93,7 +93,7 @@ SRC_URI += " \
 #	* vc707_fmcomms2-3
 #	* vc707_fmcjesdadc1
 #	* vc707_fmcadc5
-KERNEL_DTB = "zynq-zed-adv7511-ad9361-fmcomms2-3"
+KERNEL_DTB = "zynq-zc706-adv7511-adrv9009"
 
 # used for sanity check
 KERNEL_DTB_SUPPORTED_zynq = "zynq-zed-adv7511-ad9361-fmcomms2-3 \
@@ -227,7 +227,7 @@ do_configure_append() {
 	# multiple include lines for our dtsi file. We also remove system-conf
 	# since it touches in nodes that our dts already touch.
 	sed -i '/analog-devices.dtsi/d;/system-conf.dtsi/d' "${WORKDIR}/system-user.dtsi"
-	echo -e "#include \"analog-devices.dtsi\"" | cat - ${WORKDIR}/system-user.dtsi > temp && mv temp ${WORKDIR}/system-user.dtsi
-	echo -e "/include/ \"${KERNEL_PL_DTB_FILE}\"" | cat - ${WORKDIR}/analog-devices.dtsi > temp && mv temp ${WORKDIR}/analog-devices.dtsi
+	echo "#include \"analog-devices.dtsi\"" | cat - ${WORKDIR}/system-user.dtsi > temp && mv temp ${WORKDIR}/system-user.dtsi
+	echo "/include/ \"${KERNEL_PL_DTB_FILE}\"" | cat - ${WORKDIR}/analog-devices.dtsi > temp && mv temp ${WORKDIR}/analog-devices.dtsi
 }
 
