@@ -230,4 +230,3 @@ do_configure_append() {
 	echo "#include \"analog-devices.dtsi\"" | cat - ${WORKDIR}/system-user.dtsi > temp && mv temp ${WORKDIR}/system-user.dtsi
 	echo "/include/ \"${KERNEL_PL_DTB_FILE}\"" | cat - ${WORKDIR}/analog-devices.dtsi > temp && mv temp ${WORKDIR}/analog-devices.dtsi
 }
-
