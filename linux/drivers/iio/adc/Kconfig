@@ -341,6 +341,14 @@ config ADRV9009
 	  ADRV9009/ADRV9008 RF Transceivers. Provides direct access
 	  via sysfs.
 
+config BR3109
+	tristate "BriRadio BR3109 RF Transceiver driver"
+	depends on SPI
+	help
+	  Say yes here to build support for BriRadio:
+	  BR3109 RF Transceivers. Provides direct access
+	  via sysfs.
+
 config AD6676
 	tristate "Analog Devices AD6676 Wideband IF Receiver driver"
 	depends on SPI

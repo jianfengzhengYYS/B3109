@@ -234,6 +234,8 @@ int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy);
 struct adrv9009_rf_phy *adrv9009_spi_to_phy(struct spi_device *spi);
 int adrv9009_spi_read(struct spi_device *spi, u32 reg);
 int adrv9009_spi_write(struct spi_device *spi, u32 reg, u32 val);
+int adrv9009_spi_read_word(struct spi_device *spi, u32 reg);
+int adrv9009_spi_write_word(struct spi_device *spi, u32 reg, u32 val);
 
 static inline bool has_tx(struct adrv9009_rf_phy *phy)
 {

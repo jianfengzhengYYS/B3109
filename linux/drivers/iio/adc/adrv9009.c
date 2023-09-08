@@ -9,6 +9,9 @@
 //#define _DEBUG
 
 #include <linux/module.h>
+
+#define DEBUG 1
+
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -46,9 +49,7 @@
 #include "talise/talise_tx.h"
 #include "talise/talise_user.h"
 #include "talise/talise_gpio.h"
-
 #include "talise/linux_hal.h"
-
 #include "talise/talise_reg_addr_macros.h"
 
 #include "adrv9009.h"
@@ -58,6 +59,7 @@
 #define FIRMWARE_RX	"TaliseRxArmFirmware.bin"
 #define STREAM		"TaliseStream.bin"
 
+#define RW_ADDR_OFFSET	1
 // 10 -bit:
 //
 // factor  v=(1+0.5*0)+((0.00143136(1+1)*(1.094*c-511))/(1+0)
@@ -219,11 +221,13 @@ int adrv9009_spi_read(struct spi_device *spi, unsigned reg)
 	unsigned char buf[3];
 	int ret;
 
+    dev_info(&spi->dev, "%s : enter", __func__);
+
 	buf[0] = 0x80 | (reg >> 8);
 	buf[1] = reg & 0xFF;
 	ret = spi_write_then_read(spi, &buf[0], 2, &buf[2], 1);
 
-	dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
+	dev_info(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
 		__func__, reg, buf[2], ret);
 
 	if (ret < 0) {
@@ -240,6 +244,8 @@ int adrv9009_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 	unsigned char buf[3];
 	int ret;
 
+    dev_info(&spi->dev, "%s : enter", __func__);
+
 	buf[0] = reg >> 8;
 	buf[1] = reg & 0xFF;
 	buf[2] = val;
@@ -251,9 +257,69 @@ int adrv9009_spi_write(struct spi_device *spi, unsigned reg, unsigned val)
 		return ret;
 	}
 
-	dev_dbg(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
+	dev_info(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
 		__func__, reg, val, ret);
+    
+	return 0;
+}
 
+
+int adrv9009_spi_read_word(struct spi_device *spi, unsigned reg)
+{
+	unsigned char buf[12];
+	uint32_t readdata;
+	int ret;
+
+    dev_info(&spi->dev, "%s : enter", __func__);
+
+    buf[0] = 0x80| ((reg >> (24+RW_ADDR_OFFSET)) & 0x7F); //Issue read command
+    buf[1] = (reg >> (16+RW_ADDR_OFFSET)) & 0xFF;
+    buf[2] = (reg >> ( 8+RW_ADDR_OFFSET)) & 0xFF;
+	buf[3] = (reg >> ( 0+RW_ADDR_OFFSET)) & 0xFE; //must be alighed to 32-bit word boundary
+
+	ret = spi_write_then_read(spi, &buf[0], 8, &buf[8], 4);
+
+	readdata = (buf[8+0]<<24)|(buf[8+1]<<16)|(buf[8+2]<<8)|buf[8+3];
+
+	dev_info(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
+		__func__, reg, readdata, ret);
+
+	if (ret < 0) {
+		dev_err(&spi->dev, "%s: failed (%d)\n",
+			__func__, ret);
+		return ret;
+	}
+
+	return readdata;
+}
+
+int adrv9009_spi_write_word(struct spi_device *spi, unsigned reg, unsigned val)
+{
+	unsigned char buf[12];
+	int ret;
+
+    dev_info(&spi->dev, "%s : enter", __func__);
+
+	buf[0] = (reg >> (24+RW_ADDR_OFFSET)) & 0x7F; //Issue write command
+	buf[1] = (reg >> (16+RW_ADDR_OFFSET)) & 0xFF;
+	buf[2] = (reg >> ( 8+RW_ADDR_OFFSET)) & 0xFF;
+	buf[3] = (reg >> ( 0+RW_ADDR_OFFSET)) & 0xFE; //must be alighed to 32-bit word boundary
+	
+	buf[4] = (val >> 24) & 0xFF;
+	buf[5] = (val >> 16) & 0xFF;
+	buf[6] = (val >>  8) & 0xFF;
+	buf[7] = (val      ) & 0xFF;
+
+	ret = spi_write_then_read(spi, buf, 8, &buf[8], 4);
+	if (ret < 0) {
+		dev_err(&spi->dev, "%s: failed (%d)\n",
+			__func__, ret);
+		return ret;
+	}
+
+	dev_info(&spi->dev, "%s: REG: 0x%X VAL: 0x%X (%d)\n",
+		__func__, reg, val, ret);
+    
 	return 0;
 }
 
@@ -1114,7 +1180,9 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	disable_irq(phy->spi->irq);
+#if 0
 	ret = adrv9009_do_setup(phy);
+#endif
 	enable_irq(phy->spi->irq);
 
 	phy->talInit.jesd204Settings.framerB.M = framer_b_m;
@@ -1619,9 +1687,9 @@ static int adrv9009_phy_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL)
-		ret = adrv9009_spi_write(phy->spi, reg, writeval);
+		ret = adrv9009_spi_write_word(phy->spi, reg, writeval);
 	else {
-		*readval = adrv9009_spi_read(phy->spi, reg);
+		*readval = adrv9009_spi_read_word(phy->spi, reg);
 		ret = 0;
 	}
 	mutex_unlock(&indio_dev->mlock);
@@ -5113,6 +5181,8 @@ static int adrv9009_probe(struct spi_device *spi)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
+    dev_info(&spi->dev, "%s : enter at debug point 1#", __func__);
+
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*phy));
 	if (indio_dev == NULL)
 		return -ENOMEM;
@@ -5122,9 +5192,13 @@ static int adrv9009_probe(struct spi_device *spi)
 	phy->spi = spi;
 	phy->spi_device_id = id;
 
+    dev_info(&spi->dev, "%s : enter at debug point 2#", __func__);
+
 	ret = adrv9009_phy_parse_dt(indio_dev, &spi->dev);
 	if (ret < 0)
 		return -ret;
+
+    dev_info(&spi->dev, "%s : enter at debug point 3#", __func__);
 
 	phy->talDevice = &phy->talise_device;
 	phy->linux_hal.spi = spi;
@@ -5207,6 +5281,8 @@ static int adrv9009_probe(struct spi_device *spi)
 		return ret;
 	}
 
+    dev_info(&spi->dev, "%s : enter at debug point 4#", __func__);
+
 	ret = adrv9009_setup(phy);
 	if (ret < 0) {
 		/* Try once more */
@@ -5214,6 +5290,8 @@ static int adrv9009_probe(struct spi_device *spi)
 		if (ret < 0)
 			goto out_unregister_notifier;
 	}
+
+    dev_info(&spi->dev, "%s : enter at debug point 5#", __func__);
 
 	if (has_rx(phy))
 		adrv9009_clk_register(phy, "-rx_sampl_clk", NULL, NULL,
