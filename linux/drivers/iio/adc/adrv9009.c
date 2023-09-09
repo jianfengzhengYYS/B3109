@@ -659,6 +659,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	/*******************************/
 	/**** Talise Initialization ***/
 	/*******************************/
+	dev_info(&phy->spi->dev, "%s : Talise Initialization", __func__);
 
 	/*Open Talise Hw Device*/
 	ret = TALISE_openHw(phy->talDevice);
@@ -667,6 +668,8 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		ret = -EFAULT;
 		goto out;
 	}
+
+	dev_info(&phy->spi->dev, "%s : TALISE_resetDevice", __func__);
 	/* Toggle RESETB pin on Talise device */
 	ret = TALISE_resetDevice(phy->talDevice);
 	if (ret != TALACT_NO_ACTION) {
@@ -675,19 +678,23 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
+#if 0
 	/* TALISE_initialize() loads the Talise device data structure
 	 * settings for the Rx/Tx/ORx profiles, FIR filters, digital
 	 * filter enables, calibrates the CLKPLL, loads the user provided Rx
 	 * gain tables, and configures the JESD204b serializers/framers/deserializers
 	 * and deframers.
 	 */
+	dev_info(&phy->spi->dev, "%s : TALISE_initialize", __func__);
 	ret = TALISE_initialize(phy->talDevice, &phy->talInit);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
 		ret = -EFAULT;
 		goto out_disable_tx_clk;
 	}
+#endif
 
+#if 0
 	/*******************************/
 	/***** CLKPLL Status Check *****/
 	/*******************************/
@@ -729,12 +736,14 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		ret = -EFAULT;
 		goto out_disable_tx_clk;
 	}
+#endif
 
+#if 0
 	/*******************************************************/
 	/**** Prepare Talise Arm binary and Load Arm and    ****/
 	/**** Stream processor Binaryes                     ****/
 	/*******************************************************/
-
+    dev_info(&phy->spi->dev, "%s : TALISE_initArm", __func__);
 	ret = TALISE_initArm(phy->talDevice, &phy->talInit);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
@@ -773,7 +782,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		ret = -EFAULT;
 		goto out_disable_tx_clk;
 	}
+#endif
 
+#if 0
 	/*******************************/
 	/**Set RF PLL LO Frequencies ***/
 	/*******************************/
@@ -806,7 +817,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			goto out_disable_tx_clk;
 		}
 	}
+#endif
 
+#if 0
 	/****************************************************/
 	/**** Run Talise ARM Initialization Calibrations ***/
 	/****************************************************/
@@ -833,7 +846,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		ret = -EFAULT;
 		goto out_disable_tx_clk;
 	}
+#endif
 
+#if 0
 	/*************************************************************************/
 	/*****  TALISE ARM Initialization External LOL Calibrations with PA  *****/
 	/*************************************************************************/
@@ -851,7 +866,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
 				__func__, __LINE__, errorFlag);
 	}
+#endif
 
+#if 0
 	/***************************************************/
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
@@ -883,7 +900,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			goto out_disable_tx_clk;
 		}
 	}
+#endif
 
+#if 0
 	/***************************************************/
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
@@ -943,7 +962,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			goto out_disable_tx_clk;
 		}
 	}
+#endif
 
+#if 0
 	/*** < User Sends SYSREF Here > ***/
 
 
@@ -999,7 +1020,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		if ((deframerStatus & 0xF7) != 0x86)
 			dev_warn(&phy->spi->dev, "TAL_DEFRAMER_A deframerStatus 0x%X", deframerStatus);
 	}
+#endif
 
+#if 0
 	/************************************/
 	/**** Check Talise Framer Status ***/
 	/************************************/
@@ -1028,7 +1051,9 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		if ((framerStatus & 0x07) != 0x05)
 			dev_warn(&phy->spi->dev, "TAL_FRAMER_B framerStatus 0x%X", framerStatus);
 	}
+#endif
 
+#if 0
 	/*** < User: When links have been verified, proceed > ***/
 
 	/***********************************************
@@ -1118,6 +1143,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 			goto out_disable_obs_rx_clk;
 		}
 	}
+#endif
 
 	phy->is_initialized = 1;
 
@@ -1180,9 +1206,7 @@ static int adrv9009_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	disable_irq(phy->spi->irq);
-#if 0
 	ret = adrv9009_do_setup(phy);
-#endif
 	enable_irq(phy->spi->irq);
 
 	phy->talInit.jesd204Settings.framerB.M = framer_b_m;

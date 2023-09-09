@@ -9,7 +9,6 @@ SRC_URI += " \
 	file://pl-delete-nodes-zynq-zed-adv7511-ad9467-fmc-250ebz.dtsi \
 	file://pl-delete-nodes-zynq-zc706-adv7511.dtsi \
 	file://pl-delete-nodes-zynq-zc706-adv7511-adrv9009.dtsi \
-	file://pl-delete-nodes-zynq-zc706-adv7511-br3109.dtsi \
 	file://pl-delete-nodes-zynq-zc706-adv7511-adrv9371.dtsi \
 	file://pl-delete-nodes-zynq-zc706-adv7511-ad6676-fmc.dtsi \
 	file://pl-delete-nodes-zynq-zc706-adv7511-ad9739a-fmc.dtsi \
@@ -57,7 +56,6 @@ SRC_URI += " \
 #	* zynq-zed-adv7511-ad9467-fmc-250ebz
 #	* zynq-zc706-adv7511
 #	* zynq-zc706-adv7511-adrv9009
-#	* zynq-zc706-adv7511-br3109
 #	* zynq-zc706-adv7511-adrv9371
 #	* zynq-zc706-adv7511-ad6676-fmc
 #	* zynq-zc706-adv7511-ad9739a-fmc
@@ -95,7 +93,7 @@ SRC_URI += " \
 #	* vc707_fmcomms2-3
 #	* vc707_fmcjesdadc1
 #	* vc707_fmcadc5
-KERNEL_DTB = "zynq-zc706-adv7511-br3109"
+KERNEL_DTB = "zynq-zc706-adv7511-adrv9009"
 
 # used for sanity check
 KERNEL_DTB_SUPPORTED_zynq = "zynq-zed-adv7511-ad9361-fmcomms2-3 \
@@ -105,7 +103,6 @@ KERNEL_DTB_SUPPORTED_zynq = "zynq-zed-adv7511-ad9361-fmcomms2-3 \
 			zynq-zed-adv7511-ad9467-fmc-250ebz \
 			zynq-zc706-adv7511 \
 			zynq-zc706-adv7511-adrv9009 \
-			zynq-zc706-adv7511-br3109 \
 			zynq-zc706-adv7511-adrv9371 \
 			zynq-zc706-adv7511-ad6676-fmc \
 			zynq-zc706-adv7511-ad9739a-fmc \

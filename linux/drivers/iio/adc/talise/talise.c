@@ -2389,6 +2389,7 @@ uint32_t TALISE_verifySpiReadWrite (taliseDevice_t *device)
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
 
+#if 0
     /* Check SPI read - VENDOR_ID_0 */
     halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_VENDOR_ID_0, &spiReg);
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
@@ -2443,7 +2444,7 @@ uint32_t TALISE_verifySpiReadWrite (taliseDevice_t *device)
     IF_ERR_RETURN_U32(retVal);
     if (spiReg != 0xA5)
     {
-        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERIFYSPI_READ_HIGH_ADDR_ERROR, retVal, TALACT_ERR_RESET_FULL);
+        return (uint32_t)talApi_verifySpiReadWriteErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERIFYSPI_READ_HIGH_ADDR_ERROR, retVal, TALACT_ERR_RESET_FULL);
     }
 
     /* Check SPI write - SCRATCH_PAD_UPPER_ADDRESS_SPACE : Data = 10110110 */
@@ -2473,8 +2474,10 @@ uint32_t TALISE_verifySpiReadWrite (taliseDevice_t *device)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERIFYSPI_WRITE_HIGH_ADDR_ERROR, retVal, TALACT_ERR_RESET_FULL);
     }
+#endif
 
     return (uint32_t)retVal;
+
 }
 
 uint32_t TALISE_initDigitalClocks(taliseDevice_t *device, taliseDigClocks_t *clockSettings)

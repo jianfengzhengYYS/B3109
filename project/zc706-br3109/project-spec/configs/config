@@ -22,7 +22,7 @@ CONFIG_SUBSYSTEM_COMPONENT_LINUX__KERNEL_NAME_EXT__LOCAL__SRC=y
 #
 # External linux-kernel local source settings
 #
-CONFIG_SUBSYSTEM_COMPONENT_LINUX__KERNEL_NAME_EXT_LOCAL_SRC_PATH="/home/zhengjianfeng/B3109/linux/"
+CONFIG_SUBSYSTEM_COMPONENT_LINUX__KERNEL_NAME_EXT_LOCAL_SRC_PATH="/home/zhengjianfeng/B3109/linux"
 
 #
 # Auto Config Settings
@@ -255,9 +255,7 @@ CONFIG_YOCTO_NETWORK_SSTATE_FEEDS_URL="http://petalinux.xilinx.com/sswreleases/r
 #
 # User Layers
 #
-CONFIG_USER_LAYER_0="/home/zhengjianfeng/B3109/meta-adi/meta-adi-core/"
-CONFIG_USER_LAYER_1="/home/zhengjianfeng/B3109/meta-adi/meta-adi-xilinx/"
+CONFIG_USER_LAYER_0="/home/zhengjianfeng/B3109/meta-adi/meta-adi-core"
+CONFIG_USER_LAYER_1="/home/zhengjianfeng/B3109/meta-adi/meta-adi-xilinx"
 CONFIG_USER_LAYER_2=""
-
-
 CONFIG_SUBSYSTEM_BOOTARGS_GENERATED="console=ttyPS0,115200 earlyprintk"
