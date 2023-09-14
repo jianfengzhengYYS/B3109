@@ -48,20 +48,21 @@ obj-$(CONFIG_AD9361) += ad9361_drv.o
 ad9371_drv-y := ad9371.o ad9371_conv.o mykonos/common.o  mykonos/mykonos.o  mykonos/mykonos_gpio.o  mykonos/mykonos_user.o
 obj-$(CONFIG_AD9371) += ad9371_drv.o
 
-adrv9009_drv-y := adrv9009.o adrv9009_conv.o \
-	talise/talise_agc.o \
-	talise/talise_arm.o \
-	talise/talise.o \
-	talise/talise_cals.o \
-	talise/talise_error.o \
-	talise/talise_gpio.o \
-	talise/talise_hal.o \
-	talise/talise_jesd204.o \
-	talise/talise_radioctrl.o \
-	talise/talise_rx.o \
-	talise/talise_tx.o \
-	talise/talise_user.o \
-	talise/linux_hal.o
+adrv9009_drv-y := br3109_es2.o br3109_conv.o \
+	br3109_talise/br3109_agc.o \
+	br3109_talise/br3109_arm.o \
+	br3109_talise/br3109.o \
+	br3109_talise/br3109_cals.o \
+	br3109_talise/br3109_error.o \
+	br3109_talise/br3109_gpio.o \
+	br3109_talise/br3109_hal.o \
+	br3109_talise/br3109_jesd204.o \
+	br3109_talise/br3109_radioctrl.o \
+	br3109_talise/br3109_rx.o \
+	br3109_talise/br3109_tx.o \
+	br3109_talise/br3109_user.o \
+	br3109_talise/br3109_arm_spi_cmd.o \
+	br3109_talise/linux_hal.o
 
 obj-$(CONFIG_ADRV9009) += adrv9009_drv.o
 

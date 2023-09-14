@@ -2,6 +2,20 @@
     "files.associations": {
         "*.tcc": "c",
         "fstream": "c",
-        "sstream": "c"
+        "sstream": "c",
+        "br3109_types.h": "c",
+        "linux_hal.h": "c",
+        "br3109.h": "c",
+        "br3109_jesd204.h": "c",
+        "br3109_radioctrl.h": "c",
+        "br3109_error.h": "c",
+        "br3109_arm.h": "c",
+        "br3109_rx.h": "c",
+        "br3109_user.h": "c",
+        "br3109_gpio.h": "c",
+        "math.h": "c",
+        "br3109_arm_spi_cmd.h": "c",
+        "br3109_cals.h": "c",
+        "math64.h": "c"
     }
 }
