@@ -9,6 +9,9 @@
 //#define _DEBUG
 
 #include <linux/module.h>
+
+#define DEBUG 1
+
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -623,7 +626,8 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 		goto out;
 	}
     // ret = BR3109_loadArmFromBinary(device, (uint32_t *)BR3109_ES2, sizeof(BR3109_ES2)/4);
-    ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)phy->fw->data, phy->fw->size);
+    // ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)phy->fw->data, phy->fw->size);
+    ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)BR3109_ES2, sizeof(BR3109_ES2)/4);
     if (ret != TALACT_NO_ACTION) {
         /*** < User: decide what to do based on Br3109 recovery action returned > ***/
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
@@ -5184,6 +5188,8 @@ static int br3109_probe(struct spi_device *spi)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
+    dev_info(&spi->dev, "%s : enter at debug point 1#", __func__);
+
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*phy));
 	if (indio_dev == NULL)
 		return -ENOMEM;
@@ -5193,10 +5199,12 @@ static int br3109_probe(struct spi_device *spi)
 	phy->spi = spi;
 	phy->spi_device_id = id;
 
+    dev_info(&spi->dev, "%s : enter at debug point 2#", __func__);
 	ret = br3109_phy_parse_dt(indio_dev, &spi->dev);
 	if (ret < 0)
 		return -ret;
 
+    dev_info(&spi->dev, "%s : enter at debug point 3#", __func__);
 	phy->talDevice = &phy->talise_device;
 	phy->linux_hal.spi = spi;
 	phy->linux_hal.log_level = BRHAL_LOG_ERR | BRHAL_LOG_WARN;
@@ -5278,6 +5286,7 @@ static int br3109_probe(struct spi_device *spi)
 		return ret;
 	}
 
+    dev_info(&spi->dev, "%s : enter at debug point 4#", __func__);
 	ret = br3109_setup(phy);
 	if (ret < 0) {
 		/* Try once more */
@@ -5286,6 +5295,7 @@ static int br3109_probe(struct spi_device *spi)
 			goto out_unregister_notifier;
 	}
 
+    dev_info(&spi->dev, "%s : enter at debug point 5#", __func__);
 	if (has_rx(phy))
 		br3109_clk_register(phy, "-rx_sampl_clk", NULL, NULL,
 				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
@@ -5440,17 +5450,17 @@ static int br3109_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id br3109_id[] = {
-	{"br3109", ID_BR3109},
+	{"adrv9009", ID_BR3109},
 	{"adrv9008-1", ID_ADRV90081},
 	{"adrv9008-2", ID_ADRV90082},
-	{"br3109-x2", ID_BR3109_X2},
+	{"adrv9009-x2", ID_BR3109_X2},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, br3109_id);
 
 static struct spi_driver br3109_driver = {
 	.driver = {
-		.name	= "br3109",
+		.name	= "adrv9009",
 		.owner	= THIS_MODULE,
 	},
 	.probe		= br3109_probe,

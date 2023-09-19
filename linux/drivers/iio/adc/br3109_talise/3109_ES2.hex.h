@@ -1,6 +1,6 @@
 #ifndef BR3109_ES2_CODE_H_
 #define BR3109_ES2_CODE_H_
-#if 0
+
 // #pragma default_variable_attributes = @ ".hi_ocm_var"
 const uint32_t BR3109_ES2[]={/*3109_ES2_master_tx_nolog_0727_3.hex*/
 0x00059078,
@@ -42398,7 +42398,7 @@ const uint32_t BR3109_ES2[]={/*3109_ES2_master_tx_nolog_0727_3.hex*/
 0xFFA3F1FF,
 0x000000FF,
 };
-#endif
+
 // #pragma default_variable_attributes =
 uint32_t checksum = 0x00000018;
 
