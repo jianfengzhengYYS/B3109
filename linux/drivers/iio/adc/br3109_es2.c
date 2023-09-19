@@ -10,7 +10,7 @@
 
 #include <linux/module.h>
 
-#define DEBUG 1
+//#define DEBUG 1
 
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -526,11 +526,14 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 		return -EINVAL;
 	}
 
+	//changed by zhengjianfeng
+	/*
 	if (phy->talInit.tx.txChannels == TAL_TXOFF)
 		pllLockStatus_mask = 0x3;
 	else
 		pllLockStatus_mask = 0x7;
-
+	*/
+	pllLockStatus_mask = 0x3;
 
 	/**********************************************************/
 	/**********************************************************/
@@ -705,7 +708,9 @@ retry_bb_pll:
 	}
 
 	/* Assert that Br3109 CLKPLL is locked */
-	if ((pllLockStatus & 0x07) <= 3) {
+	// changed by zhengjianfeng:
+	//if ((pllLockStatus & 0x07) <= 3) {
+	if ((pllLockStatus & 0x07) < 3) {
 		dev_err(&phy->spi->dev, "%s:%d: CLKPLL is unlocked (0x%X)", __func__, __LINE__, pllLockStatus);
 		ret = -EFAULT;
 		goto out_disable_tx_clk;

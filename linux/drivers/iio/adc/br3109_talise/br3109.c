@@ -54,7 +54,7 @@
 #include "br3109_gpio.h"
 #include "br3109_config.h"
 
-#define BR3109_VERBOSE 1
+#define BR3109_VERBOSE 0
 #define BR3109_LOGGING 0xF      /*LogLevel Set to All*/
 #define BR3109_RESET_ON_ERR  1   /*API Reset on Severe Errors*/
 
