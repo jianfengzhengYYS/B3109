@@ -85,7 +85,7 @@ brHalErr_t BRHAL_spiWriteWord(void *devHalInfo,	uint32_t addr, uint32_t data)
 
 	if (devHalData->log_level & BRHAL_LOG_SPI)
 	{
-		dev_err(&devHalData->spi->dev, "SPIWrite: ADDR:0x%03X, DATA:0x%02X \n", addr, data);
+		// dev_err(&devHalData->spi->dev, "SPIWrite: ADDR:0x%03X, DATA:0x%02X \n", addr, data);
 	}
 
     buf[0] = (addr >> (24+RW_ADDR_OFFSET)) & 0x7F; //Issue write command
@@ -166,8 +166,8 @@ brHalErr_t BRHAL_spiReadWord(void *devHalInfo, uint32_t addr, uint32_t *readdata
 
 	if (devHalData->log_level & BRHAL_LOG_SPI)
 	{
-		dev_err(&devHalData->spi->dev, "SPIRead: ADDR:0x%03X, ReadData:0x%08X\n",
-			addr, *readdata);
+		//dev_err(&devHalData->spi->dev, "SPIRead: ADDR:0x%03X, ReadData:0x%08X\n",
+		//	addr, *readdata);
 	}
 
 	return BRHAL_OK;

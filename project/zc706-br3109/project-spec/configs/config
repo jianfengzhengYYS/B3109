@@ -258,4 +258,5 @@ CONFIG_YOCTO_NETWORK_SSTATE_FEEDS_URL="http://petalinux.xilinx.com/sswreleases/r
 CONFIG_USER_LAYER_0="/home/zhengjianfeng/B3109/meta-adi/meta-adi-core"
 CONFIG_USER_LAYER_1="/home/zhengjianfeng/B3109/meta-adi/meta-adi-xilinx"
 CONFIG_USER_LAYER_2=""
+
 CONFIG_SUBSYSTEM_BOOTARGS_GENERATED="console=ttyPS0,115200 earlyprintk"

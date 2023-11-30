@@ -777,12 +777,12 @@ retry_bb_pll:
 	// 	goto out_disable_tx_clk;
 	// }
 
-	ret = BR3109_setArmGpioPins(phy->talDevice, &phy->arm_gpio_config);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_tx_clk;
-	}
+	// ret = BR3109_setArmGpioPins(phy->talDevice, &phy->arm_gpio_config);
+	// if (ret != TALACT_NO_ACTION) {
+	// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 	ret = -EFAULT;
+	// 	goto out_disable_tx_clk;
+	// }
 
 	/*******************************/
 	/**Set RF PLL LO Frequencies ***/
@@ -804,7 +804,7 @@ retry_bb_pll:
 		ret = -EFAULT;
 		goto out_disable_tx_clk;
 	}
-
+	pllLockStatus_mask = 0x3;
 	ret = BR3109_getPllsLockStatus(phy->talDevice, &pllLockStatus);
 	if ((pllLockStatus & pllLockStatus_mask) != pllLockStatus_mask) {
 		msleep(200);
@@ -1043,28 +1043,28 @@ retry_bb_pll:
 	 * the obsRx path is set to OBS_INTERNAL_CALS   *
 	 * **********************************************/
 
-	ret = BR3109_setGpIntMask(phy->talDevice, TAL_GP_MASK_AUX_SYNTH_UNLOCK);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
-	}
+	// ret = BR3109_setGpIntMask(phy->talDevice, TAL_GP_MASK_AUX_SYNTH_UNLOCK);
+	// if (ret != TALACT_NO_ACTION) {
+	// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 	ret = -EFAULT;
+	// 	goto out_disable_obs_rx_clk;
+	// }
 
-	ret = BR3109_enableTrackingCals(phy->talDevice, trackingCalMask);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
-	}
+	// ret = BR3109_enableTrackingCals(phy->talDevice, trackingCalMask);
+	// if (ret != TALACT_NO_ACTION) {
+	// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 	ret = -EFAULT;
+	// 	goto out_disable_obs_rx_clk;
+	// }
 
-	if (has_rx_and_en(phy)) {
-		ret = BR3109_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-			ret = -EFAULT;
-			goto out_disable_obs_rx_clk;
-		}
-	}
+	// if (has_rx_and_en(phy)) {
+	// 	ret = BR3109_setupRxAgc(phy->talDevice, &phy->rxAgcCtrl);
+	// 	if (ret != TALACT_NO_ACTION) {
+	// 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 		ret = -EFAULT;
+	// 		goto out_disable_obs_rx_clk;
+	// 	}
+	// }
 	/* Function to turn radio on, Enables transmitters and receivers */
 	/* that were setup during BR3109_initialize() */
 	ret = BR3109_radioOn(phy->talDevice);
@@ -1097,23 +1097,23 @@ retry_bb_pll:
 
 	br3109_sysref_req(phy, SYSREF_CONT_ON);
 
-	ret = BR3109_setupAuxDacs(phy->talDevice, &phy->auxdac);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
-	}
+	// ret = BR3109_setupAuxDacs(phy->talDevice, &phy->auxdac);
+	// if (ret != TALACT_NO_ACTION) {
+	// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 	ret = -EFAULT;
+	// 	goto out_disable_obs_rx_clk;
+	// }
 
-	if (phy->gpio3v3SrcCtrl) {
-		ret = BR3109_setGpio3v3SourceCtrl(phy->talDevice, phy->gpio3v3SrcCtrl);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-			ret = -EFAULT;
-			goto out_disable_obs_rx_clk;
-		}
-		BR3109_setGpio3v3PinLevel(phy->talDevice, phy->gpio3v3PinLevel);
-		BR3109_setGpio3v3Oe(phy->talDevice, phy->gpio3v3OutEn, 0xFFF);
-	}
+	// if (phy->gpio3v3SrcCtrl) {
+	// 	ret = BR3109_setGpio3v3SourceCtrl(phy->talDevice, phy->gpio3v3SrcCtrl);
+	// 	if (ret != TALACT_NO_ACTION) {
+	// 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 		ret = -EFAULT;
+	// 		goto out_disable_obs_rx_clk;
+	// 	}
+	// 	BR3109_setGpio3v3PinLevel(phy->talDevice, phy->gpio3v3PinLevel);
+	// 	BR3109_setGpio3v3Oe(phy->talDevice, phy->gpio3v3OutEn, 0xFFF);
+	// }
 
 	// if (has_tx(phy)) {
 	// 	ret = BR3109_setPaProtectionCfg(phy->talDevice, &phy->tx_pa_protection);
