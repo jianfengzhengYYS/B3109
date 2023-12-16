@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#define TX_BW_SWTICH_FREQ(ref_freq_hz)   (ref_freq_hz > 81250000 ? (ref_freq_hz*2) : (ref_freq_hz*4))
+#define TX_BW_SWTICH_FREQ(ref_freq_hz)   (ref_freq_hz > 81250000 ? (ref_freq_hz > 200000000 ? (ref_freq_hz) : (ref_freq_hz*2)) : (ref_freq_hz*4))
 extern br3109Init_t talInit;
 
 #ifdef __cplusplus

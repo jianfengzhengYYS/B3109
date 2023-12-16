@@ -69,6 +69,7 @@ typedef enum {
 	TALAPI_ARMSPI_CMD_SYNC_ADC_Q						= 0x0024,
 	TALAPI_ARMSPI_CMD_SETORF_FREQ						= 0x0025,
 	TALAPI_ARMSPI_CMD_AGC_CALI							= 0x0026,
+	TALAPI_ARMSPI_CMD_JESD_STATE_SET					= 0x0027,
     TALAPI_ARMSPI_CMD_CALI_CPLXFIR					    = 0x1001,
 	TALAPI_ARMSPI_CMD_PLAYCAP_SET						= 0x1101,
 	TALAPI_ARMSPI_CMD_PLAYCAP_MANUAL_START			    = 0x1102,
@@ -134,6 +135,7 @@ uint32_t BR3109_armSpiCmd_turnoff_all(br3109Device_t *device);
 uint32_t BR3109_armSpiCmd_rx_dig_dc_xal(br3109Device_t *device, CHANNEL_t set_channel, uint8_t set_bw);
 uint32_t BR3109_armSpiCmd_Initical_cali(br3109Device_t *device, CHANNEL_t tx_ch, CHANNEL_t rx_ch, CHANNEL_t orx_ch, CHANNEL_t tx1_lp2orx_ch, CHANNEL_t tx2_lp2orx_ch, uint8_t set_bw, uint8_t external_lp, uint32_t cali_flag);
 uint32_t BR3109_armSpiCmd_Jesd_config(br3109Device_t *device, uint8_t jesdtx_rx);
+uint32_t BR3109_armSpiCmd_Jesd_state_autorelink(br3109Device_t *device, uint8_t state);
 uint32_t BR3109_armSpiCmd_setrf_freq(br3109Device_t *device, uint32_t freq_KHz);
 uint32_t BR3109_armSpiCmd_SyncAdc_Q(br3109Device_t *device, uint8_t ch1_sync_q, uint8_t ch2_sync_q);
 uint32_t BR3109_armSpiCmd_setorf_freq(br3109Device_t *device, uint32_t freq_Khz);

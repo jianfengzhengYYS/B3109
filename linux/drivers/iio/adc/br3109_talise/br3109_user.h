@@ -88,7 +88,7 @@ extern "C" {
 /* 3 Bytes per SPI transaction * 341 transactions = ~1024 byte buffer size */
 /* Minimum MYK_SPIWRITEARRAY_BUFFERSIZE = 18 */
 
-#define BR3109_VERBOSE 0
+#define BR3109_VERBOSE 1
 #define BR3109_LOGGING 0xF      /*LogLevel Set to All*/
 #define BR3109_RESET_ON_ERR  1   /*API Reset on Severe Errors*/
 

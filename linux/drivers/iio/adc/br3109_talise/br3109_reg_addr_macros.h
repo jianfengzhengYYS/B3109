@@ -16,6 +16,12 @@ extern "C" {
 #endif
 #if 1
 
+/**
+ * *(uint64_t) 的强制转换是为了解决gcc报警告的问题, 64位系统中指针是64位/8字节的, 直接转换为32位的变量会报错,
+ * 添加强制转换(uint32_t)(uint64_t)后,该警告消失,
+ * 后续可能需要评估该方法是否有意义, BR3109是不是64位还是32位
+*/
+#define type_OffSet(type, field) 	((uint32_t)(uint64_t)&(((type*)0)->field))
 /******************************************************************************/
 /*                         APB addrbase                        				  */
 /******************************************************************************/
@@ -142,6 +148,7 @@ extern "C" {
 #define BR3109_ADDR_JESD_FRAMER_SAMPLE_AUX_XBAR_89AB_0             (APB_JESD_TX_BASEADDR+0x0094)
 #define BR3109_ADDR_JESD_FRAMER_SAMPLE_AUX_XBAR_CDEF_0             (APB_JESD_TX_BASEADDR+0x0098)
 #define BR3109_ADDR_JESD_FRAMER_TEST_CFG_0			               (APB_JESD_TX_BASEADDR+0x00EC)
+#define BR3109_ADDR_JESD_FRAMER_LANE_PN_CFG			               (APB_JESD_TX_BASEADDR+0x00F0)
 #define BR3109_ADDR_JESD_FRAMER_SYNC				               (APB_JESD_TX_BASEADDR+0x00F4)
 #define BR3109_ADDR_JESD_DEFRAMER_CONFIG                           (APB_JESD_RX_BASEADDR+0x0008)
 #define BR3109_ADDR_JESD_DEFRAMER_IRQ			                   (APB_JESD_RX_BASEADDR+0x000C)
@@ -162,6 +169,7 @@ extern "C" {
 #define BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_3L                  	(APB_JESD_RX_BASEADDR+0x007C)
 #define BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_3H                  	(APB_JESD_RX_BASEADDR+0x0080)
 #define BR3109_ADDR_JESD_DEFRAMER_RX_CGS_FRAME_SYNC				 	(APB_JESD_RX_BASEADDR+0x0084)
+#define BR3109_ADDR_JESD_DEFRAMER_LANE_PN_CFG			            (APB_JESD_RX_BASEADDR+0x0090)
 #define BR3109_ADDR_JESD_DEFRAMER_NOTINTAB_DISERR_PRBS_COUNT_CLEAR 	(APB_JESD_RX_BASEADDR+0x00B4)
 #define BR3109_ADDR_JESD_DEFRAMER_PRBS_CFG                         	(APB_JESD_RX_BASEADDR+0x00B8)
 #define BR3109_ADDR_JESD_DEFRAMER_PRBS_COUNT0          				(APB_JESD_RX_BASEADDR+0x00BC)

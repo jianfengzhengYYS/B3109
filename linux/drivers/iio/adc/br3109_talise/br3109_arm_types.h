@@ -19,8 +19,21 @@ extern "C" {
 #pragma pack(push)
 #pragma pack(1)
 typedef struct{
-	uint32_t rf_pll_Khz;
-	uint8_t band;
+	uint32_t version;	//[0:7] reversion	[8:15]minorVer [16:23] majorVer
+	uint32_t jesd_phy_status;	// lane[3:0] cdr lock status 1:err 0:ok
+	uint32_t ext_refclk_hz;
+	uint32_t refclk_hz;
+	uint64_t rf_pll_hz;
+	uint64_t orflo_pll_hz;
+	uint64_t bbvco_freq_hz;
+	uint32_t band:8;
+	uint32_t lb_mode:4;
+	uint32_t tx_ch:4;
+	uint32_t rx_orx_ch:4;
+	uint32_t LoBwIndex:3;
+	uint32_t is_uartcmd:1;
+	uint32_t track_cali_flag:8;
+	uint32_t jesd_auto_reset:4;
 }Globle_conf_t;
 
 

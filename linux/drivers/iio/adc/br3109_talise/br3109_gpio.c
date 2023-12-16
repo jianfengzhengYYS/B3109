@@ -17,13 +17,6 @@
 #include "br3109_arm.h"
 #include "br3109_user.h" /* Defines BR3109_VERBOSE */
 
-/**
- * *(uint64_t) 的强制转换是为了解决gcc报警告的问题, 64位系统中指针是64位/8字节的, 直接转换为32位的变量会报错,
- * 添加强制转换(uint32_t)(uint64_t)后,该警告消失,
- * 后续可能需要评估该方法是否有意义, BR3109是不是64位还是32位
-*/
-#define type_OffSet(type, field) 	((uint32_t)(uint64_t)&(((type*)0)->field))
-
 
 uint32_t  BR3109_setGpioOe (br3109Device_t *device, uint32_t gpioOutEn, uint32_t gpioUsedMask) 
 {
@@ -374,21 +367,21 @@ uint32_t  BR3109_getTemperature (br3109Device_t *device, int16_t *temperatureDeg
     }
     else
     {
-		data = (1 << 0) | (0 << 1) | (0x3 << 2) | (8 << 4) ;
-		retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_DAC_IQ_L0_ID, 0x30), data, 0xFF, 0);
-		// data = 1<<24;
-		// retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_DAC_IQ_L0_ID, 0x08), data, 0x1 << 24, 0);
-		IF_ERR_RETURN_U32(retVal);
-		data = 4;//4:adc L0 5:adc L1 6:dac L0 7 dac L1 8: jesd tx 9:jesd rx 15-17:bandgap
-		retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x08), data, 0x0000001F, 0);
-		IF_ERR_RETURN_U32(retVal);
-		//RST
-		retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x0C), 0, 0x00000001, 0);
-		IF_ERR_RETURN_U32(retVal);
-		retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x0C), 1, 0x00000001, 0);
-		IF_ERR_RETURN_U32(retVal);
-		retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x0C), 0, 0x00000001, 0);
-		IF_ERR_RETURN_U32(retVal);
+		// data = (1 << 0) | (0 << 1) | (0x3 << 2) | (8 << 4) ;
+		// retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_DAC_IQ_L0_ID, 0x30), data, 0xFF, 0);
+		// // data = 1<<24;
+		// // retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_DAC_IQ_L0_ID, 0x08), data, 0x1 << 24, 0);
+		// IF_ERR_RETURN_U32(retVal);
+		// data = 4;//4:adc L0 5:adc L1 6:dac L0 7 dac L1 8: jesd tx 9:jesd rx 15-17:bandgap
+		// retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x08), data, 0x0000001F, 0);
+		// IF_ERR_RETURN_U32(retVal);
+		// //RST
+		// retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x0C), 0, 0x00000001, 0);
+		// IF_ERR_RETURN_U32(retVal);
+		// retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x0C), 1, 0x00000001, 0);
+		// IF_ERR_RETURN_U32(retVal);
+		// retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_AUX_ADDA_IVREF_ID, 0x0C), 0, 0x00000001, 0);
+		// IF_ERR_RETURN_U32(retVal);
 		//read adc
 		retVal = BR3109_armSpiCmd_SPI_blk_read(device,SPI_AUX_ADDA_IVREF_ID, 0x7C, &data, 1);
 	    IF_ERR_RETURN_U32(retVal);

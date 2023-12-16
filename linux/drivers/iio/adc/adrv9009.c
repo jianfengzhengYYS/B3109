@@ -678,7 +678,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 		goto out;
 	}
 
-#if 0
+#if 1
 	/* TALISE_initialize() loads the Talise device data structure
 	 * settings for the Rx/Tx/ORx profiles, FIR filters, digital
 	 * filter enables, calibrates the CLKPLL, loads the user provided Rx
@@ -694,7 +694,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/*******************************/
 	/***** CLKPLL Status Check *****/
 	/*******************************/
@@ -738,7 +738,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/*******************************************************/
 	/**** Prepare Talise Arm binary and Load Arm and    ****/
 	/**** Stream processor Binaryes                     ****/
@@ -784,7 +784,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/*******************************/
 	/**Set RF PLL LO Frequencies ***/
 	/*******************************/
@@ -819,7 +819,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/****************************************************/
 	/**** Run Talise ARM Initialization Calibrations ***/
 	/****************************************************/
@@ -848,7 +848,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/*************************************************************************/
 	/*****  TALISE ARM Initialization External LOL Calibrations with PA  *****/
 	/*************************************************************************/
@@ -868,7 +868,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/***************************************************/
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
@@ -902,7 +902,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/***************************************************/
 	/**** Enable Talise JESD204B Framer ***/
 	/***************************************************/
@@ -964,7 +964,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/*** < User Sends SYSREF Here > ***/
 
 
@@ -1022,7 +1022,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/************************************/
 	/**** Check Talise Framer Status ***/
 	/************************************/
@@ -1053,7 +1053,7 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 #endif
 
-#if 0
+#if 1
 	/*** < User: When links have been verified, proceed > ***/
 
 	/***********************************************
@@ -1711,9 +1711,9 @@ static int adrv9009_phy_reg_access(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->mlock);
 	if (readval == NULL)
-		ret = adrv9009_spi_write_word(phy->spi, reg, writeval);
+		ret = adrv9009_spi_write(phy->spi, reg, writeval);
 	else {
-		*readval = adrv9009_spi_read_word(phy->spi, reg);
+		*readval = adrv9009_spi_read(phy->spi, reg);
 		ret = 0;
 	}
 	mutex_unlock(&indio_dev->mlock);

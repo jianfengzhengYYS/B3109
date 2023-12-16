@@ -24,6 +24,12 @@ uint32_t  BR3109_runInitCals (br3109Device_t *device, uint32_t calMask)
     talRecoveryActions_t retValWarn = TALACT_NO_ACTION;
     uint8_t bw = device->devStateInfo.txBandwidth_Hz <= device->devStateInfo.txBandwidth_SW_Hz? 0 : 1;
     uint32_t regdat = 0x5;
+    CHANNEL_t tx_ch = 0x0;
+    CHANNEL_t rx_ch = 0x0;
+    CHANNEL_t orx_ch = 0x0;
+    CHANNEL_t tx1_lp2orx_ch = 0;
+    CHANNEL_t tx2_lp2orx_ch = 0;
+    uint8_t external_lp = 0;
     // uint8_t payload[4] = {0};
 
 #if BR3109_VERBOSE
@@ -33,18 +39,47 @@ uint32_t  BR3109_runInitCals (br3109Device_t *device, uint32_t calMask)
 #endif
 
     retValWarn = retVal;
-
-    // payload[0] = (uint8_t)calMask;
-    // payload[1] = (uint8_t)(calMask >> 8);
-    // payload[2] = (uint8_t)(calMask >> 16);
-    // payload[3] = (uint8_t)(calMask >> 24);
-//	retVal = BR3109_armSpiCmd_playcap_set(device, 0, 1, 0, 0x01, 0, 0x2, 0x1);
-//    IF_ERR_RETURN_U32(retVal);
-//	retVal = BR3109_armMemoryCmd_blk_write(device, (APB_TX_PATH_TOP_PLAY_MODE ), &regdat, 1);
-//	IF_ERR_RETURN_U32(retVal);
-//    retVal = BR3109_armSpiCmd_playcap_manual_start(device, 0x1);
-//	IF_ERR_RETURN_U32(retVal);
-    retVal = (talRecoveryActions_t)BR3109_armSpiCmd_Initical_cali(device, 0x3, 0x3, 0x3, 0, 0, bw, 0x0,calMask);//
+    regdat = calMask;
+    calMask = CALI_PART_ONLY_SWEEP;
+    if(regdat & (1 << 10)){
+        tx_ch = (device->devStateInfo.initializedChannels >> 4) & 0x3;
+        calMask |= CALI_PART_QEC_CFIR;
+    }
+    if(regdat & (1 << 8)){
+        tx_ch = (device->devStateInfo.initializedChannels >> 4) & 0x3;
+        calMask |= CALI_PART_DC_OFFSET;
+        external_lp = 0;
+    }
+    if(regdat & (1 << 9)){
+        tx_ch = (device->devStateInfo.initializedChannels >> 4) & 0x3;
+        calMask |= CALI_PART_DC_OFFSET;
+        external_lp = 1;
+    }
+    if(regdat & (1 << 14)){
+        rx_ch = device->devStateInfo.initializedChannels & 0x3;
+        calMask |= CALI_PART_QEC_CFIR;
+    }
+    if(regdat & (1 << 13)){
+        rx_ch = device->devStateInfo.initializedChannels & 0x3;
+        calMask |= CALI_PART_DC_OFFSET;
+    }
+    if(regdat & (1 << 17)){
+        orx_ch = (device->devStateInfo.initializedChannels >> 2) & 0x3;
+        calMask |= CALI_PART_QEC_CFIR;
+    }
+    if(regdat & (1 << 16)){
+        orx_ch = (device->devStateInfo.initializedChannels >> 2) & 0x3;
+        calMask |= CALI_PART_DC_OFFSET;
+    }
+    if(((device->devStateInfo.initializedChannels >> 2) & 0x3) == 0x1){
+        tx1_lp2orx_ch = 0x1;
+        tx2_lp2orx_ch = 0x1;
+    }else if(((device->devStateInfo.initializedChannels >> 2) & 0x3) == 0x2){
+        tx1_lp2orx_ch = 0x2;
+        tx2_lp2orx_ch = 0x2;
+    }
+    // pr_err("tx_ch(0x%x), rx_ch(0x%x), orx_ch(0x%x), tx1_lp2orx_ch(0x%x), tx2_lp2orx_ch(0x%x), bw(0x%x), external_lp(0x%x),calMask(0x%x)\r\n",tx_ch, rx_ch, orx_ch, tx1_lp2orx_ch, tx2_lp2orx_ch, bw, external_lp,calMask);
+    retVal = (talRecoveryActions_t)BR3109_armSpiCmd_Initical_cali(device, tx_ch, rx_ch, orx_ch, tx1_lp2orx_ch, tx2_lp2orx_ch, bw, external_lp,calMask);//
     IF_ERR_RETURN_U32(retVal);
 
 

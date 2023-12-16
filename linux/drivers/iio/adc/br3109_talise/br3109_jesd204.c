@@ -298,6 +298,12 @@ uint32_t BR3109_setupSerializers(br3109Device_t *device, br3109Init_t *init)
 	retVal = BR3109_ArmWriteField(device, BR3109_ARMSPI_ADDR(SPI_BBPLL_ID, 0x3C), rxLaneRate_kHz >= 8000000? 0:(0x3<<19), 0x3<<19, 0);
 	IF_ERR_RETURN_U32(retVal);
 
+	retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_FRAMER_CONFIG4_0), 1, 0x10, 4);
+	IF_ERR_RETURN_U32(retVal);
+	retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_FRAMER_CONFIG4_0 + BR3109_JESD_FRAMERB_OFFSET), 1, 0x10, 4);
+	IF_ERR_RETURN_U32(retVal);
+	retVal = BR3109_armSpiCmd_Jesd_config(device, JESD_TX);
+	IF_ERR_RETURN_U32(retVal);
 #if 0
 	/* Power down all lanes */
 	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_APB_CLK_RST_FUNC_RESET, 0x1, 0x00004000, 14);
@@ -674,6 +680,7 @@ uint32_t BR3109_setupJesd204bFramer(br3109Device_t *device, br3109Init_t *init,
 			break;
 		}
 	}
+	framerLaneXbar = framer->serializerLaneCrossbar;
 	
 
 //	if (framer->M == 8) {
@@ -753,18 +760,19 @@ uint32_t BR3109_setupJesd204bFramer(br3109Device_t *device, br3109Init_t *init,
 	regdata =  0x00;
 	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_FRAMER_CONFIG4_0+ framerAddrOffset, regdata, 0x10, 0);
 	/* Disable JESD204b link enable */
-	regdata = (init->jesd204Settings.framerA.syncbInSelect & 0x01) | ((init->jesd204Settings.sysrefLvdsMode & 0x1) << 3)
-			| ((init->jesd204Settings.sysrefLvdsPnInvert & 0x1)<<4);
-	retVal = BR3109_ArmWriteField(device,  BR3109_ADDR_JESD_FRAMER_CONFIG_0, regdata, 0x00000019, 0);
+	// regdata = (init->jesd204Settings.framerA.syncbInSelect & 0x01) | ((init->jesd204Settings.sysrefLvdsMode & 0x1) << 3)
+	// 		| ((init->jesd204Settings.sysrefLvdsPnInvert & 0x1)<<4);
+	regdata = (framer->syncbInSelect & 0x1) | ((framer->syncbInLvdsPnInvert & 0x1) << 1);
+	retVal = BR3109_ArmWriteField(device,  BR3109_ADDR_JESD_FRAMER_CONFIG_0, regdata, 0x00000003, 0);
 	IF_ERR_RETURN_U32(retVal);
 	/* enabling the SYSREF for relink if newSysrefOnRelink is set */
 	// if (framer->newSysrefOnRelink > 0) {
 	// 	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_FRAMER_CONFIG_0, 0x01, 0xff00, 8);
 	// 	IF_ERR_RETURN_U32(retVal);
 	// }
-	// regdata  = 0x2;//sysref oneshot
-	// retVal = BR3109_ArmWriteField(device,  BR3109_ADDR_JESD_FRAMER_CONFIG_1, regdata, 0x02, 1);
-	// IF_ERR_RETURN_U32(retVal);
+	regdata  = (init->jesd204Settings.serInvertLanePolarity & 0xF) << 16;//
+	retVal = BR3109_ArmWriteField(device,  BR3109_ADDR_JESD_FRAMER_LANE_PN_CFG, regdata, 0x000F0000, 0);
+	IF_ERR_RETURN_U32(retVal);
 	// framer->bankId = 0;
 	scr = framer->scramble;		//number of lanes -1 //scramble enable
 	regdata = (framer->deviceId&0xff)|((framer->bankId & 0x0F)<<8)|((framer->lane0Id & 0x1F)<<16) | (scr << 31) | (((L-1) & 0x1F) << 24); /* DID /BID/LID/L/SCR*/
@@ -1022,10 +1030,13 @@ uint32_t BR3109_setupJesd204bDeframer(br3109Device_t *device, br3109Init_t *init
 	
 
 	//scrambar
-	regdat = ((scr&0x1)<<11)| 1 << 13;//>BB
-	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_CONFIG_1, regdat, 0x00002800, 0);
+	regdat = ((scr&0x1)<<11)| 1 << 13 | ((deframer->syncbOutLvdsPnInvert & 0x1) << 14) ;//>BB
+	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_CONFIG_1, regdat, 0x00006800, 0);
 	IF_ERR_RETURN_U32(retVal);
 
+	regdat  = (init->jesd204Settings.desInvertLanePolarity & 0xF);//
+	retVal = BR3109_ArmWriteField(device,  BR3109_ADDR_JESD_DEFRAMER_LANE_PN_CFG, regdat, 0x000F, 0);
+	IF_ERR_RETURN_U32(retVal);
 //	/* Enable deframer link */
 //	retVal = (talRecoveryActions_t)BR3109_enableDeframerLink(device, deframerSel,1);
 //	IF_ERR_RETURN_U32(retVal);
@@ -1058,6 +1069,8 @@ uint32_t BR3109_enableFramerLink(br3109Device_t *device, br3109FramerSel_t frame
 		// IF_ERR_RETURN_U32(retVal);
 		halError = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_FRAMER_CONFIG4_0), enableLink, 0x10, 4);
 		IF_ERR_RETURN_U32(retVal);
+		retVal = BR3109_FramerRest(device, TAL_FRAMER_A);
+		IF_ERR_RETURN_U32(retVal);
 	}
 
 	if ((framerSel == TAL_FRAMER_B) || (framerSel == TAL_FRAMER_A_AND_B)) {
@@ -1067,6 +1080,8 @@ uint32_t BR3109_enableFramerLink(br3109Device_t *device, br3109FramerSel_t frame
 		// IF_ERR_RETURN_U32(retVal);
 		retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_FRAMER_CONFIG4_0 + BR3109_JESD_FRAMERB_OFFSET), enableLink, 0x10, 4);
 		IF_ERR_RETURN_U32(retVal);
+		retVal = BR3109_FramerRest(device, TAL_FRAMER_B);
+		IF_ERR_RETURN_U32(retVal);
 	}
 
 	return (uint32_t)retVal;
@@ -1074,8 +1089,9 @@ uint32_t BR3109_enableFramerLink(br3109Device_t *device, br3109FramerSel_t frame
 uint32_t BR3109_enableDeframerLink(br3109Device_t *device, br3109DeframerSel_t deframerSel, uint8_t enable)
 {
 	talRecoveryActions_t retVal = TALACT_NO_ACTION;
-	brHalErr_t halError = BRHAL_OK;
-
+	brHalErr_t halError = BRHAL_OK;	
+	uint32_t status = 0;
+	int i = 0;
 #if BR3109_VERBOSE
 	halError = brWriteToLog(device->devHalInfo, BRHAL_LOG_MSG, TAL_ERR_OK, "BR3109_enableDeframerLink()\n");
 	retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
@@ -1088,14 +1104,22 @@ uint32_t BR3109_enableDeframerLink(br3109Device_t *device, br3109DeframerSel_t d
 	}
 
 	if (enable > 0) {
-		//retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_DEFRAMER_CONFIG), 0x1, 0x10000, 16);
-		//IF_ERR_RETURN_U32(retVal);
-		//retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_DEFRAMER_CONFIG), 0, 0x10000, 16);
-		//IF_ERR_RETURN_U32(retVal);
+		for(i = 0; i < 5; i++){
+			retVal = BR3109_armSpiCmd_Jesd_config(device, JESD_RX);
+			IF_ERR_RETURN_U32(retVal);
+			retVal = BR3109_armMemoryCmd_blk_read(device, BR3109_ADDR_ARM_GLOBLE_CONFIG_DATA + type_OffSet(Globle_conf_t, jesd_phy_status),  &status, 1);
+			IF_ERR_RETURN_U32(retVal);
+			if(status == 0){
+				break;
+			}
+		}
+		if(status != 0){
+			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_APIARM_ERR, TAL_ERR_DEFRAMER_PHY, retVal, TALACT_ERR_RESET_JESD204DEFRAMERA);
+		}
 		/* Enable the deframer JESD link */
 		retVal = BR3109_ArmWriteField(device,BR3109_ADDR_JESD_DEFRAMER_CONFIG_0, 1, 0x10, 4);
 		IF_ERR_RETURN_U32(retVal);
-		retVal = BR3109_armSpiCmd_Jesd_config(device, JESD_RX);
+		retVal = BR3109_DeframerRest(device, deframerSel);
 		IF_ERR_RETURN_U32(retVal);
 	} else {
 		/* clear deframer link enable bit */
@@ -1260,25 +1284,25 @@ uint32_t BR3109_setupDacSampleXbar(br3109Device_t *device,
 	}
 //	if(dacXbar.dacChanI != 2)
 //		return retVal;
-	xbarReg[0] =  (((uint8_t)dacXbar.dacChanQ*4) & CONV_MASK) | ((((
-			uint8_t)dacXbar.dacChanI*4) & CONV_MASK) << CONV_POS);
-	xbarReg[1] =  (((uint8_t)dacXbar.dacChanQ*4+1) & CONV_MASK) | ((((
-			uint8_t)dacXbar.dacChanI*4+1) & CONV_MASK) << CONV_POS);
+	xbarReg[0] =  (((uint8_t)dacXbar.dacChanI*4) & CONV_MASK) | ((((
+			uint8_t)dacXbar.dacChanQ*4) & CONV_MASK) << CONV_POS);
+	xbarReg[1] =  (((uint8_t)dacXbar.dacChanI*4+1) & CONV_MASK) | ((((
+			uint8_t)dacXbar.dacChanQ*4+1) & CONV_MASK) << CONV_POS);
 
 	// UART_Printf("\r\n****I:%d	Q:%d**********dacXbar0x64:0x%08X 0x%08X 0x%08X 0x%08X\r\n",dacXbar.dacChanI, dacXbar.dacChanQ, 
 	// 	xbarReg[1]<<(16*(channelSel-1)), xbarReg[0]<<(16*(channelSel-1)),(xbarReg[1]+0x0202)<<(16*(channelSel-1)), (xbarReg[0]+0x0202)<<(16*(channelSel-1)));
 
 	/* setting the DAC sample crossbar */
-	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_0L, xbarReg[1], 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
+	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_1L, xbarReg[1], 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
 	IF_ERR_RETURN_U32(retVal);
-	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_0H, xbarReg[0], 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
+	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_1H, xbarReg[0], 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
 	IF_ERR_RETURN_U32(retVal);
-	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_1L, xbarReg[1]+0x0202, 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
+	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_0L, xbarReg[1]+0x0202, 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
 	IF_ERR_RETURN_U32(retVal);
 //	if(channelSel > 1)
 //	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_1H, xbarReg[0]+0x0202, 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
 //	else		
-	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_1H, xbarReg[0]+0x0202, 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
+	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_JESD_DEFRAMER_SAMPLE_XBAR_0H, xbarReg[0]+0x0202, 0x1F1F<<(16*(channelSel-1)), (16*(channelSel-1)));
 	IF_ERR_RETURN_U32(retVal);
 
 	return (uint32_t)retVal;
@@ -1328,7 +1352,7 @@ uint32_t BR3109_setupAdcSampleXbar(br3109Device_t *device,
 		framerOffset = 0;
 		break;
 	case TAL_FRAMER_B:
-		framerOffset = 0x10;
+		framerOffset = 0x100+0;
 		break;
 	default:
 		return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
@@ -1353,18 +1377,18 @@ uint32_t BR3109_setupAdcSampleXbar(br3109Device_t *device,
 	retVal = talCheckAdcSampleXbarSelectEnum (device, adcXbar.conv7);
 	IF_ERR_RETURN_U32(retVal);		
 	/* writing setting to the ADC sample crossbar */
-	xbarReg[0] = (((uint8_t)adcXbar.conv2) & CONV_MASK) | ((((uint8_t)adcXbar.conv3) &	CONV_MASK) << CONV_POS)
-			| ((((uint8_t)adcXbar.conv0) &	CONV_MASK) << CONV_POS*2)| ((((uint8_t)adcXbar.conv1) &
+	xbarReg[0] = (((uint8_t)adcXbar.conv0) & CONV_MASK) | ((((uint8_t)adcXbar.conv1) &	CONV_MASK) << CONV_POS)
+			| ((((uint8_t)adcXbar.conv2) &	CONV_MASK) << CONV_POS*2)| ((((uint8_t)adcXbar.conv3) &
 			CONV_MASK) << CONV_POS*3);
+	xbarReg[1] = (((uint8_t)adcXbar.conv4) & CONV_MASK) | ((((uint8_t)adcXbar.conv5) &	CONV_MASK) << CONV_POS)
+			| ((((uint8_t)adcXbar.conv6) &	CONV_MASK) << CONV_POS*2)| ((((uint8_t)adcXbar.conv7) &
+			CONV_MASK) << CONV_POS*3);
+
 	retVal = BR3109_armMemoryCmd_blk_write(device, BR3109_ADDR_JESD_FRAMER_SAMPLE_XBAR_0123_0 + framerOffset, xbarReg, 1);
 	IF_ERR_RETURN_U32(retVal);
 	retVal = BR3109_armMemoryCmd_blk_write(device, BR3109_ADDR_JESD_FRAMER_SAMPLE_AUX_XBAR_0123_0 + framerOffset, xbarReg, 1);
 	IF_ERR_RETURN_U32(retVal);
 	// UART_Printf("\r\n-----adcXbar0x4C+%x:0x%08X\r\n",framerOffset,xbarReg[0]);
-
-	xbarReg[1] = (((uint8_t)adcXbar.conv6) & CONV_MASK) | ((((uint8_t)adcXbar.conv7) &	CONV_MASK) << CONV_POS)
-			| ((((uint8_t)adcXbar.conv4) &	CONV_MASK) << CONV_POS*2)| ((((uint8_t)adcXbar.conv5) &
-			CONV_MASK) << CONV_POS*3);
 
 	retVal = BR3109_armMemoryCmd_blk_write(device, BR3109_ADDR_JESD_FRAMER_SAMPLE_XBAR_4567_0 + framerOffset, &xbarReg[1], 1);
 	IF_ERR_RETURN_U32(retVal);
@@ -2160,7 +2184,9 @@ uint32_t BR3109_DeframerRest(br3109Device_t *device, br3109DeframerSel_t framerS
 		return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_RSTFRAMER_INV_FRAMERSEL, retVal, TALACT_ERR_CHECK_PARAM);
 	}
 
-	retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_DEFRAMER_CONFIG), 1<<16, 0x1<<16, 0);//reset
+	retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_DEFRAMER_CONFIG), (1 << 16) | (0xful << 28), (1 << 16) | (0xful << 28), 0);//inst and pcs reset
+	IF_ERR_RETURN_U32(retVal);
+	retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_DEFRAMER_CONFIG), (0 << 28), (0xful << 28), 0);//pcs dereset
 	IF_ERR_RETURN_U32(retVal);
 	retVal = BR3109_ArmWriteField(device, (BR3109_ADDR_JESD_DEFRAMER_CONFIG), 0<<16, 0x1<<16, 0);//dereset
 	IF_ERR_RETURN_U32(retVal);

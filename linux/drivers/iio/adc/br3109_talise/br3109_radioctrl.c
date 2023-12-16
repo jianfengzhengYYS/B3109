@@ -567,7 +567,7 @@ uint32_t BR3109_getRxTxEnable(br3109Device_t *device,
 	IF_ERR_RETURN_U32(retVal);
 
 	*txChannel = (br3109TxChannels_t)((chEnable>>2) & 0x3);
-	*rxOrxChannel = (br3109RxORxChannels_t)(chEnable & 0x33);
+	*rxOrxChannel = (br3109RxORxChannels_t)((chEnable & 0x3) | ((chEnable>>2) & 0xC));
 
 	return (uint32_t)retVal;
 }
@@ -701,7 +701,8 @@ uint32_t  BR3109_getRfPllFrequency (br3109Device_t *device, br3109RfPllName_t pl
     brHalErr_t halError = BRHAL_OK;
 	uint32_t reg_data = 0;
 	uint32_t refclk = 0;
-	uint16_t ref_mul = 1;
+	uint16_t refpath_div = 1;
+	uint16_t ref_div = 1;
 	uint32_t fcw = 0;
 	uint32_t div = 0;
 #if BR3109_VERBOSE
@@ -719,18 +720,20 @@ uint32_t  BR3109_getRfPllFrequency (br3109Device_t *device, br3109RfPllName_t pl
 			div = __GetDiv(reg_data);
 			retVal = BR3109_armSpiCmd_SPI_blk_read(device,SPI_RFPLL_ID, 0x34, &reg_data, 1);//ref_div
        		IF_ERR_RETURN_U32(retVal);
+			ref_div = ((reg_data >> 3) & 0x1) ? 2 : 1;
 			retVal = BR3109_armSpiCmd_SPI_blk_read(device, SPI_LO_TXALLWORK_REFPATH_ID, 0x5C, &reg_data, 1);//div
        		IF_ERR_RETURN_U32(retVal);
-			refclk = device->devStateInfo.clocks.deviceClock_kHz * 1000 /intpow(2,(reg_data>>3)&0x1);
-			if((reg_data & 0x3E00C) == 0x800C){
-				ref_mul = 4;
-			}else if((reg_data & 0x3E00C) == 0x08){
-				ref_mul = 2;
-			}else{
-				ref_mul = 1;
-			}
+			refpath_div = ((reg_data >> 2) & 0x3) == 0 ? 1 : (((reg_data >> 2) & 0x3) == 0x2 ? 2 : ((reg_data >> 13) & 0x1F));
+			refclk = device->devStateInfo.clocks.deviceClock_kHz * 1000 /refpath_div;
+			// if((reg_data & 0x3E00C) == 0x800C){
+			// 	ref_mul = 4;
+			// }else if((reg_data & 0x3E00C) == 0x08){
+			// 	ref_mul = 2;
+			// }else{
+			// 	ref_mul = 1;
+			// }
 			// *rfPllLoFrequency_Hz = (uint64_t)fcw/intpow(2,23)/div*refclk/ref_mul;
-			*rfPllLoFrequency_Hz = DIV_U64((uint64_t)fcw, (intpow(2,23)*div/refclk*ref_mul));
+			*rfPllLoFrequency_Hz = DIV_U64((uint64_t)fcw*refclk, (intpow(2,23)*div*ref_div));
             break;
         case TAL_ORF_PLL:
 			retVal = BR3109_armMemoryCmd_blk_read(device, BR3109_ADDR_APB_CLK_RST_ORF_FCW, &fcw, 1);
@@ -740,18 +743,20 @@ uint32_t  BR3109_getRfPllFrequency (br3109Device_t *device, br3109RfPllName_t pl
 			div = __GetDiv(reg_data);
 			retVal = BR3109_armSpiCmd_SPI_blk_read(device,SPI_ORFPLL_ID, 0x34, &reg_data, 1);//ref_div
        		IF_ERR_RETURN_U32(retVal);
-			refclk = device->devStateInfo.clocks.deviceClock_kHz * 1000 /intpow(2,(reg_data>>3)&0x1);
+			ref_div = ((reg_data >> 3) & 0x1) ? 2 : 1;
 			retVal = BR3109_armSpiCmd_SPI_blk_read(device, SPI_LO_TXALLWORK_REFPATH_ID, 0x5C, &reg_data, 1);//div
        		IF_ERR_RETURN_U32(retVal);
-			if((reg_data & 0xf8000C0) == 0x20000C0){
-				ref_mul = 4;
-			}else if((reg_data & 0xf8000C0) == 0x80){
-				ref_mul = 2;
-			}else{
-				ref_mul = 1;
-			}
+			refpath_div = ((reg_data >> 6) & 0x3) == 0 ? 1 : (((reg_data >> 6) & 0x3) == 0x2 ? 2 : ((reg_data >> 23) & 0x1F));
+			refclk = device->devStateInfo.clocks.deviceClock_kHz * 1000 /refpath_div;
+			// if((reg_data & 0xf8000C0) == 0x20000C0){
+			// 	ref_mul = 4;
+			// }else if((reg_data & 0xf8000C0) == 0x80){
+			// 	ref_mul = 2;
+			// }else{
+			// 	ref_mul = 1;
+			// }
 			// *rfPllLoFrequency_Hz = (uint64_t)fcw/intpow(2,23)/div*refclk/ref_mul;
-			*rfPllLoFrequency_Hz = DIV_U64((uint64_t)fcw, (intpow(2,23)*div/refclk*ref_mul));
+			*rfPllLoFrequency_Hz = DIV_U64((uint64_t)fcw*refclk, (intpow(2,23)*div*ref_div));
             break;
         default:
             return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,

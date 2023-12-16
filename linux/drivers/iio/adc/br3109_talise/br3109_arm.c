@@ -32,7 +32,7 @@ uint32_t BR3109_initArm(br3109Device_t *device, br3109Init_t *init)
     halError = brWriteToLog(device->devHalInfo, BRHAL_LOG_MSG, TAL_ERR_OK, "BR3109_initArm()\n");
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
-	if (init->clocks.deviceClock_kHz > 10000 && init->clocks.deviceClock_kHz <= 200000) {
+	if (init->clocks.deviceClock_kHz > 10000 && init->clocks.deviceClock_kHz <= 1000000) {
         refarm_div = 0; 
 		regdat = init->clocks.deviceClock_kHz*1000;
 		retVal = brSpiWriteWordsBlock(device->devHalInfo, BR3109_ADDR_REFCLK_FREQ,  &regdat, 1);

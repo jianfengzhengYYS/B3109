@@ -9,9 +9,6 @@
 //#define _DEBUG
 
 #include <linux/module.h>
-
-//#define DEBUG 1
-
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -38,14 +35,18 @@
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
 
+#include <linux/fs.h>
+#include <linux/errno.h>
+#include <linux/file.h>
 
 #include "br3109_es2.h"
 #include "br3109_talise/3109_ES2.hex.h"
 
-// #define FIRMWARE	"TaliseTDDArmFirmware.bin"
+//#define FIRMWARE	"TaliseTDDArmFirmware.bin"
+#define FIRMWARE	"3109_ES2.bin"
 // #define FIRMWARE_TX	"TaliseTxArmFirmware.bin"
 // #define FIRMWARE_RX	"TaliseRxArmFirmware.bin"
-#define STREAM		"TaliseStream.bin"
+// #define STREAM		"TaliseStream.bin"
 
 // 10 -bit:
 //
@@ -310,6 +311,9 @@ static int br3109_set_jesd_lanerate(struct br3109_rf_phy *phy,
 	}
 
 	lane_rate_kHz = input_rate_khz * m * 20 / l;
+	dev_err(&phy->spi->dev,
+		"==============++++++++Request %s lanerate %lu kHz m(%d) m(%d)\n",
+		framer ? "framer" : "deframer", lane_rate_kHz, m, l);
 
 	ret = clk_set_rate(link_clk, lane_rate_kHz);
 	if (ret < 0) {
@@ -420,17 +424,17 @@ static int br3109_set_radio_state(struct br3109_rf_phy *phy,
 
 	switch (state) {
 	case RADIO_OFF:
-		ret = BR3109_radioOff(phy->talDevice);
+		// ret = BR3109_radioOff(phy->talDevice);
 		break;
 	case RADIO_ON:
-		ret = BR3109_radioOn(phy->talDevice);
+		// ret = BR3109_radioOn(phy->talDevice);
 		break;
 	case RADIO_FORCE_OFF:
 		if (!(phy->talDevice->devStateInfo.devState & TAL_STATE_RADIOON)) {
 			phy->saved_radio_state = false;
 			return 0;
 		}
-		ret = BR3109_radioOff(phy->talDevice);
+		// ret = BR3109_radioOff(phy->talDevice);
 		if (ret == TALACT_NO_ACTION)
 			phy->saved_radio_state = true;
 		else
@@ -441,16 +445,16 @@ static int br3109_set_radio_state(struct br3109_rf_phy *phy,
 		if (ret != TALACT_NO_ACTION)
 			return -EFAULT;
 		/* throw error if not in radioOff/IDLE state */
-		if ((radioStatus & 0x03) != 2) {
-			dev_err(&phy->spi->dev, "%s: failed\n", __func__);
-			return -EFAULT;
-		}
+		// if ((radioStatus & 0x03) != 2) {
+		// 	dev_err(&phy->spi->dev, "%s: failed\n", __func__);
+		// 	return -EFAULT;
+		// }
 		break;
 	case RADIO_RESTORE_STATE:
-		if (phy->saved_radio_state)
-			ret = BR3109_radioOn(phy->talDevice);
-		else
-			ret = BR3109_radioOff(phy->talDevice);
+		// if (phy->saved_radio_state)
+		// 	ret = BR3109_radioOn(phy->talDevice);
+		// else
+		// 	ret = BR3109_radioOff(phy->talDevice);
 
 		break;
 	}
@@ -526,14 +530,11 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 		return -EINVAL;
 	}
 
-	//changed by zhengjianfeng
-	/*
 	if (phy->talInit.tx.txChannels == TAL_TXOFF)
 		pllLockStatus_mask = 0x3;
 	else
 		pllLockStatus_mask = 0x7;
-	*/
-	pllLockStatus_mask = 0x3;
+
 
 	/**********************************************************/
 	/**********************************************************/
@@ -545,7 +546,7 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 	 * System Clock should provide a device clock and SYSREF signal
 	 * to the BR3109 device.
 	 **/
-
+	// phy->talInit.clocks.deviceClock_kHz = 122880;
 	dev_clk = clk_round_rate(phy->dev_clk,
 				 phy->talInit.clocks.deviceClock_kHz * 1000);
 	fmc_clk = clk_round_rate(phy->fmc_clk,
@@ -564,7 +565,8 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 			phy->talInit.clocks.deviceClock_kHz * 1000, dev_clk);
 		return -EINVAL;
 	}
-
+	dev_info(&phy->spi->dev, "%s :	line:%d tx input:%d Khz orx input:%d Khz", __func__,__LINE__, phy->talInit.tx.txProfile.txInputRate_kHz, phy->talInit.obsRx.orxProfile.orxOutputRate_kHz);
+	// phy->talInit.tx.txProfile.txInputRate_kHz = 245760;
 	ret = br3109_set_jesd_lanerate(phy,
 		phy->talInit.tx.txProfile.txInputRate_kHz, phy->jesd_tx_clk,
 		NULL, &phy->talInit.jesd204Settings.deframerA, &lmfc);
@@ -588,6 +590,28 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 	if (ret < 0)
 		goto out;
 
+	if (has_tx_and_en(phy)) {
+		u8 phy_ctrl;
+		ret = clk_prepare_enable(phy->jesd_tx_clk);
+		if (ret < 0) {
+			dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
+			goto out;
+		}
+	}
+
+	if (has_rx(phy))
+		clk_set_rate(phy->clks[RX_SAMPL_CLK],
+			phy->talInit.rx.rxProfile.rxOutputRate_kHz * 1000);
+
+	if (has_tx(phy)) {
+		clk_set_rate(phy->clks[OBS_SAMPL_CLK],
+			phy->talInit.obsRx.orxProfile.orxOutputRate_kHz * 1000);
+		clk_set_rate(phy->clks[TX_SAMPL_CLK],
+			phy->talInit.tx.txProfile.txInputRate_kHz * 1000);
+	}
+	// dev_err(&phy->spi->dev, "+++++++++++++++++++++++++++++++++tx:%d	%dKhz,rx:%d	%dKhz,orx:%d	%dKhz\n",phy->talInit.tx.txProfile.txInputRate_kHz, phy->jesd_tx_clk,
+	// 		phy->talInit.rx.rxProfile.rxOutputRate_kHz, phy->jesd_rx_clk,phy->talInit.obsRx.orxProfile.orxOutputRate_kHz,
+	// 	phy->jesd_rx_os_clk);
 	/*** < Insert User BBIC JESD204B Initialization Code Here > ***/
 
 	/*******************************/
@@ -622,15 +646,18 @@ static int br3109_do_setup(struct br3109_rf_phy *phy)
 		ret = -EFAULT;
 		goto out;
 	}
-	ret = BR3109_initDigitalClocks(phy->talDevice,&(phy->talInit.clocks));
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out;
+	// ret = BR3109_initDigitalClocks(phy->talDevice,&(phy->talInit.clocks));
+	// if (ret != TALACT_NO_ACTION) {
+	// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 	ret = -EFAULT;
+	// 	goto out;
+	// }
+	if(phy->fw == NULL){
+    	ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)BR3109_ES2, sizeof(BR3109_ES2)/4);
+	}else{
+    	ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)phy->fw->data, phy->fw->size/4);
+		checksum = *((uint32_t *)(&phy->fw->data[phy->fw->size - 4]));
 	}
-    // ret = BR3109_loadArmFromBinary(device, (uint32_t *)BR3109_ES2, sizeof(BR3109_ES2)/4);
-    // ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)phy->fw->data, phy->fw->size);
-    ret = BR3109_loadArmFromBinary(phy->talDevice, (uint32_t *)BR3109_ES2, sizeof(BR3109_ES2)/4);
     if (ret != TALACT_NO_ACTION) {
         /*** < User: decide what to do based on Br3109 recovery action returned > ***/
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
@@ -708,8 +735,6 @@ retry_bb_pll:
 	}
 
 	/* Assert that Br3109 CLKPLL is locked */
-	// changed by zhengjianfeng:
-	//if ((pllLockStatus & 0x07) <= 3) {
 	if ((pllLockStatus & 0x07) < 3) {
 		dev_err(&phy->spi->dev, "%s:%d: CLKPLL is unlocked (0x%X)", __func__, __LINE__, pllLockStatus);
 		ret = -EFAULT;
@@ -816,7 +841,7 @@ retry_bb_pll:
 			goto out_disable_tx_clk;
 		}
 	}
-
+#if 0
 	/****************************************************/
 	/**** Run BR3109 ARM Initialization Calibrations ***/
 	/****************************************************/
@@ -842,7 +867,7 @@ retry_bb_pll:
 		ret = -EFAULT;
 		goto out_disable_tx_clk;
 	}
-
+#endif
 	// /*************************************************************************/
 	// /*****  TALISE ARM Initialization External LOL Calibrations with PA  *****/
 	// /*************************************************************************/
@@ -860,18 +885,18 @@ retry_bb_pll:
 	// 		dev_err(&phy->spi->dev, "%s:%d Init Cal errorFlag (0x%X)",
 	// 			__func__, __LINE__, errorFlag);
 	// }
-
+	// BR3109_armSpiCmd_Jesd_state_autorelink(phy->talDevice, 0);
 	/***************************************************/
 	/**** Enable BR3109 JESD204B Framer ***/
 	/***************************************************/
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_clk) && phy->talInit.jesd204Settings.framerA.M) {
-		ret = BR3109_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 0);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-			ret = -EFAULT;
-			goto out_disable_tx_clk;
-		}
+		// ret = BR3109_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 0);
+		// if (ret != TALACT_NO_ACTION) {
+		// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		// 	ret = -EFAULT;
+		// 	goto out_disable_tx_clk;
+		// }
 
 		ret = BR3109_enableFramerLink(phy->talDevice, TAL_FRAMER_A, 1);
 		if (ret != TALACT_NO_ACTION) {
@@ -898,12 +923,12 @@ retry_bb_pll:
 	/***************************************************/
 
 	if (!IS_ERR_OR_NULL(phy->jesd_rx_os_clk) && phy->talInit.jesd204Settings.framerB.M) {
-		ret = BR3109_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 0);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-			ret = -EFAULT;
-			goto out_disable_tx_clk;
-		}
+		// ret = BR3109_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 0);
+		// if (ret != TALACT_NO_ACTION) {
+		// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		// 	ret = -EFAULT;
+		// 	goto out_disable_tx_clk;
+		// }
 
 		ret = BR3109_enableFramerLink(phy->talDevice, TAL_FRAMER_B, 1);
 		if (ret != TALACT_NO_ACTION) {
@@ -928,12 +953,12 @@ retry_bb_pll:
 	/**** Enable  BR3109 JESD204B Deframer ***/
 	/***************************************************/
 	if (!IS_ERR_OR_NULL(phy->jesd_tx_clk) && phy->talInit.jesd204Settings.deframerA.M) {
-		ret = BR3109_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 0);
-		if (ret != TALACT_NO_ACTION) {
-			dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-			ret = -EFAULT;
-			goto out_disable_tx_clk;
-		}
+		// ret = BR3109_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 0);
+		// if (ret != TALACT_NO_ACTION) {
+		// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+		// 	ret = -EFAULT;
+		// 	goto out_disable_tx_clk;
+		// }
 
 		ret |= BR3109_enableDeframerLink(phy->talDevice, TAL_DEFRAMER_A, 1);
 		if (ret != TALACT_NO_ACTION) {
@@ -974,16 +999,7 @@ retry_bb_pll:
 		}
 	}
 
-	if (has_tx_and_en(phy)) {
-		u8 phy_ctrl;
-		ret = clk_prepare_enable(phy->jesd_tx_clk);
-		if (ret < 0) {
-			dev_err(&phy->spi->dev, "jesd_tx_clk enable failed (%d)", ret);
-			goto out;
-		}
-	}
-
-	br3109_sysref_req(phy, SYSREF_CONT_OFF);
+	// br3109_sysref_req(phy, SYSREF_CONT_OFF);
 
 	/*** < User Sends SYSREF Here > ***/
 
@@ -1067,24 +1083,24 @@ retry_bb_pll:
 	// }
 	/* Function to turn radio on, Enables transmitters and receivers */
 	/* that were setup during BR3109_initialize() */
-	ret = BR3109_radioOn(phy->talDevice);
-	if (ret != TALACT_NO_ACTION) {
-		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
-		ret = -EFAULT;
-		goto out_disable_obs_rx_clk;
-	}
+	// ret = BR3109_radioOn(phy->talDevice);
+	// if (ret != TALACT_NO_ACTION) {
+	// 	dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
+	// 	ret = -EFAULT;
+	// 	goto out_disable_obs_rx_clk;
+	// }
 
 
-	if (has_rx(phy))
-		clk_set_rate(phy->clks[RX_SAMPL_CLK],
-			phy->talInit.rx.rxProfile.rxOutputRate_kHz * 1000);
+	// if (has_rx(phy))
+	// 	clk_set_rate(phy->clks[RX_SAMPL_CLK],
+	// 		phy->talInit.rx.rxProfile.rxOutputRate_kHz * 1000);
 
-	if (has_tx(phy)) {
-		clk_set_rate(phy->clks[OBS_SAMPL_CLK],
-			phy->talInit.obsRx.orxProfile.orxOutputRate_kHz * 1000);
-		clk_set_rate(phy->clks[TX_SAMPL_CLK],
-			phy->talInit.tx.txProfile.txInputRate_kHz * 1000);
-	}
+	// if (has_tx(phy)) {
+	// 	clk_set_rate(phy->clks[OBS_SAMPL_CLK],
+	// 		phy->talInit.obsRx.orxProfile.orxOutputRate_kHz * 1000);
+	// 	clk_set_rate(phy->clks[TX_SAMPL_CLK],
+	// 		phy->talInit.tx.txProfile.txInputRate_kHz * 1000);
+	// }
 
 	ret = BR3109_setRxTxEnable(phy->talDevice,
 				   has_rx_and_en(phy) ? TAL_RX1RX2_EN : 0,
@@ -1094,8 +1110,11 @@ retry_bb_pll:
 		ret = -EFAULT;
 		goto out_disable_obs_rx_clk;
 	}
-
-	br3109_sysref_req(phy, SYSREF_CONT_ON);
+	br3109RxORxChannels_t rxOrxChannel; br3109TxChannels_t txChannel;
+	ret = BR3109_getRxTxEnable(phy->talDevice, &rxOrxChannel, &txChannel);
+	dev_err(&phy->spi->dev, "%s:%d (ret %d) rxOrxChannel(0x%x) txChannel(0x%x) initch(0x%x)", __func__, __LINE__, ret,rxOrxChannel,txChannel,phy->talDevice->devStateInfo.initializedChannels);
+	BR3109_armSpiCmd_Jesd_state_autorelink(phy->talDevice, 2);
+	// br3109_sysref_req(phy, SYSREF_CONT_ON);
 
 	// ret = BR3109_setupAuxDacs(phy->talDevice, &phy->auxdac);
 	// if (ret != TALACT_NO_ACTION) {
@@ -1142,6 +1161,11 @@ out:
 	phy->is_initialized = 0;
 
 	return ret;
+// out_disable_obs_rx_clk:
+// out_disable_rx_clk:
+// out_disable_tx_clk:
+// out:
+// 	return 0;
 }
 
 static int br3109_setup(struct br3109_rf_phy *phy)
@@ -1476,6 +1500,7 @@ static ssize_t br3109_phy_store(struct device *dev,
 	int ret = 0;
 	u32 val;
 
+	dev_err(&phy->spi->dev, "%s:%d (this_attr->address 0x%08X)", __func__, __LINE__, this_attr->address);
 	mutex_lock(&indio_dev->mlock);
 
 	switch ((u32)this_attr->address & 0xFF) {
@@ -1504,7 +1529,8 @@ static ssize_t br3109_phy_store(struct device *dev,
 		} else if (enable) {
 			uint8_t errorFlag = 0;
 
-			br3109_set_radio_state(phy, RADIO_FORCE_OFF);
+			// br3109_set_radio_state(phy, RADIO_FORCE_OFF);
+			dev_err(&phy->spi->dev, "%s:%d (cal_mask 0x%08X)(initcalich: 0x%x)", __func__, __LINE__, phy->cal_mask, phy->talDevice->devStateInfo.initializedChannels);
 
 			ret = BR3109_runInitCals(phy->talDevice, phy->cal_mask);
 			if (ret != TALACT_NO_ACTION) {
@@ -1526,7 +1552,7 @@ static ssize_t br3109_phy_store(struct device *dev,
 				/*< user code - Calibrations completed successfully > */
 			}
 
-			br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
+			// br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
 		}
 		break;
 	case BR3109_MCS:
@@ -1557,6 +1583,7 @@ static ssize_t br3109_phy_show(struct device *dev,
 	int ret = 0;
 	u32 val;
 
+	dev_err(&phy->spi->dev, "%s:%d (this_attr->address 0x%08X)", __func__, __LINE__, this_attr->address);
 	mutex_lock(&indio_dev->mlock);
 	switch ((u32)this_attr->address & 0xFF) {
 	case BR3109_ENSM_MODE:
@@ -1648,7 +1675,7 @@ static struct attribute *br3109_phy_attributes[] = {
 static const struct attribute_group br3109_phy_attribute_group = {
 	.attrs = br3109_phy_attributes,
 };
-
+#if 0 
 static struct attribute *adrv90081_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
@@ -1679,7 +1706,7 @@ static struct attribute *adrv90082_phy_attributes[] = {
 static const struct attribute_group adrv90082_phy_attribute_group = {
 	.attrs = adrv90082_phy_attributes,
 };
-
+#endif
 static int br3109_phy_reg_access(struct iio_dev *indio_dev,
 				   u32 reg, u32 writeval,
 				   u32 *readval)
@@ -1688,10 +1715,12 @@ static int br3109_phy_reg_access(struct iio_dev *indio_dev,
 	int ret;
 
 	mutex_lock(&indio_dev->mlock);
-	if (readval == NULL)
+	if (readval == NULL){
 		ret = br3109_spi_write(phy->spi, reg, writeval);
-	else {
+		// dev_err(&phy->spi->dev, "=====wr:0x%08X	0x%08X\n", reg, writeval);
+	}else {
 		*readval = br3109_spi_read(phy->spi, reg);
+		// dev_err(&phy->spi->dev, "=====rd:0x%08X	0x%08X\n", reg, *readval);
 		ret = 0;
 	}
 	mutex_unlock(&indio_dev->mlock);
@@ -1726,7 +1755,7 @@ static ssize_t br3109_phy_lo_write(struct iio_dev *indio_dev,
 
 		mutex_lock(&indio_dev->mlock);
 
-		br3109_set_radio_state(phy, RADIO_FORCE_OFF);
+		// br3109_set_radio_state(phy, RADIO_FORCE_OFF);
 
 		if (readin >= 3000000000ULL)
 			loop_bw = 300;
@@ -1739,19 +1768,19 @@ static ssize_t br3109_phy_lo_write(struct iio_dev *indio_dev,
 			phy->current_loopBandwidth_kHz[chan->channel] = loop_bw;
 		}
 
-		ret = BR3109_setRfPllFrequency(phy->talDevice, TAL_RF_PLL + chan->channel,
-					       readin);
+		ret = BR3109_setRfPllFrequency(phy->talDevice, TAL_RF_PLL + chan->channel,      readin);
 		if (ret != TALACT_NO_ACTION) {
-			br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
+			// br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
 			break;
 		}
 
 		ret = BR3109_getPllsLockStatus(phy->talDevice, &status);
-		if (!((status & BIT(chan->channel + 1) || (ret != TALACT_NO_ACTION))))
+		if (!((status & BIT(1) || (ret != TALACT_NO_ACTION))))
 			ret = -EFAULT;
 
 		phy->trx_lo_frequency = readin;
-		br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
+    	dev_info(&phy->spi->dev, "%s :	line:%d ch:(%d), freq(%lld)", __func__,__LINE__, chan->channel, readin);
+		// br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
 		break;
 	// case FHM_ENABLE:
 	// 	ret = strtobool(buf, &enable);
@@ -1809,8 +1838,7 @@ static ssize_t br3109_phy_lo_read(struct iio_dev *indio_dev,
 	mutex_lock(&indio_dev->mlock);
 	switch (private) {
 	case LOEXT_FREQ:
-		ret = BR3109_getRfPllFrequency(phy->talDevice, TAL_RF_PLL + chan->channel,
-					       &val);
+		ret = BR3109_getRfPllFrequency(phy->talDevice, TAL_RF_PLL  + chan->channel,&val);
 		break;
 	// case FHM_ENABLE:
 	// 	ret = BR3109_getFhmMode(phy->talDevice, &fhm_mode);
@@ -1823,6 +1851,7 @@ static ssize_t br3109_phy_lo_read(struct iio_dev *indio_dev,
 		ret = 0;
 	}
 	mutex_unlock(&indio_dev->mlock);
+    dev_info(&phy->spi->dev, "%s :	line:%d private (%d)	ch:(%d), freq(%llu)", __func__,__LINE__, private, chan->channel, val);
 
 	return ret ? ret : sprintf(buf, "%llu\n", val);
 }
@@ -1952,39 +1981,40 @@ static ssize_t br3109_phy_rx_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
+    dev_info(&phy->spi->dev, "%s :	line:%d private:(%d)", __func__,__LINE__,private);
 	mutex_lock(&indio_dev->mlock);
 
 	switch (private) {
 		case RSSI:
 			break;
-	case RX_QEC:
+		case RX_QEC:
 
-		switch (chan->channel) {
-		case CHAN_RX1:
-			mask = TAL_TRACK_RX1_QEC;
-			break;
-		case CHAN_RX2:
-			mask = TAL_TRACK_RX2_QEC;
-			break;
-		case CHAN_OBS_RX1:
-			mask = TAL_TRACK_ORX1_QEC;
-			break;
-		case CHAN_OBS_RX2:
-			mask = TAL_TRACK_ORX2_QEC;
-			break;
-		default:
-			ret = -EINVAL;
-			goto out;
-		}
+			switch (chan->channel) {
+			case CHAN_RX1:
+				mask = TAL_TRACK_RX1_QEC;
+				break;
+			case CHAN_RX2:
+				mask = TAL_TRACK_RX2_QEC;
+				break;
+			case CHAN_OBS_RX1:
+				mask = TAL_TRACK_ORX1_QEC;
+				break;
+			case CHAN_OBS_RX2:
+				mask = TAL_TRACK_ORX2_QEC;
+				break;
+			default:
+				ret = -EINVAL;
+				goto out;
+			}
 
 		if (enable)
 			phy->tracking_cal_mask |= mask;
 		else
 			phy->tracking_cal_mask &= ~mask;
 
-		br3109_set_radio_state(phy, RADIO_FORCE_OFF);
+		// br3109_set_radio_state(phy, RADIO_FORCE_OFF);
 		ret = BR3109_enableTrackingCals(phy->talDevice, phy->tracking_cal_mask);
-		br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
+		// br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
 
 		break;
 	case RX_HD2:
@@ -2014,8 +2044,7 @@ static ssize_t br3109_phy_rx_write(struct iio_dev *indio_dev,
 
 	case RX_POWERDOWN:
 
-		BR3109_getRxTxEnable(phy->talDevice, &rxchan, &txchan);
-
+		ret = BR3109_getRxTxEnable(phy->talDevice, &rxchan, &txchan);
 		switch (chan->channel) {
 		case CHAN_RX1:
 			if (enable)
@@ -2056,9 +2085,10 @@ static ssize_t br3109_phy_rx_write(struct iio_dev *indio_dev,
 		default:
 			ret = -EINVAL;
 		}
-
-		if (ret == 0)
+    	// dev_info(&phy->spi->dev, "%s :	line:%d ret = :(%d) rxchan(0x%x), txchan(0x%x)", __func__,__LINE__,ret, rxchan, txchan);
+		if (ret == 0){
 			ret = BR3109_setRxTxEnable(phy->talDevice, rxchan, txchan);
+		}
 
 		break;
 	case RX_GAIN_CTRL_PIN_MODE:
@@ -2361,17 +2391,16 @@ static ssize_t br3109_phy_tx_write(struct iio_dev *indio_dev,
 		else
 			phy->tracking_cal_mask &= ~mask;
 
-		br3109_set_radio_state(phy, RADIO_FORCE_OFF);
+		// br3109_set_radio_state(phy, RADIO_FORCE_OFF);
 		ret = BR3109_enableTrackingCals(phy->talDevice, phy->tracking_cal_mask);
-		br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
+		// br3109_set_radio_state(phy, RADIO_RESTORE_STATE);
 
 		break;
 
 		ret = -EINVAL;
 		break;
 	case TX_POWERDOWN:
-		BR3109_getRxTxEnable(phy->talDevice, &rxchan, &txchan);
-
+		ret = BR3109_getRxTxEnable(phy->talDevice, &rxchan, &txchan);
 		switch (chan->channel) {
 		case CHAN_TX1:
 			if (enable)
@@ -2386,7 +2415,7 @@ static ssize_t br3109_phy_tx_write(struct iio_dev *indio_dev,
 				txchan |= TAL_TX2;
 			break;
 		}
-
+    	// dev_info(&phy->spi->dev, "%s :	line:%d ret:(%d) rxchan(0x%x) txchan(0x%x)", __func__,__LINE__,ret ,rxchan,txchan);
 		if (ret == 0)
 			ret = BR3109_setRxTxEnable(phy->talDevice, rxchan, txchan);
 
@@ -2681,6 +2710,7 @@ static int br3109_phy_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 
+    // dev_info(&phy->spi->dev, "%s :	line:%d debug:(m):%d", __func__,__LINE__,m);
 	mutex_lock(&indio_dev->mlock);
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
@@ -2848,6 +2878,7 @@ static int br3109_phy_write_raw(struct iio_dev *indio_dev,
 	u32 code;
 	int ret = 0;
 
+    dev_info(&phy->spi->dev, "%s :	line:%d debug:(mask):%d", __func__,__LINE__,mask);
 	mutex_lock(&indio_dev->mlock);
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
@@ -3089,7 +3120,7 @@ static const struct iio_info br3109_phy_info = {
 	.attrs = &br3109_phy_attribute_group,
 	.driver_module = THIS_MODULE,
 };
-
+#if 0
 static const struct iio_chan_spec adrv90081_phy_chan[] = {
 	{	/* RX LO */
 		.type = IIO_ALTVOLTAGE,
@@ -3400,7 +3431,7 @@ static const struct iio_info adrv90082_phy_info = {
 	.attrs = &adrv90082_phy_attribute_group,
 	.driver_module = THIS_MODULE,
 };
-
+#endif
 static ssize_t br3109_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
@@ -3410,6 +3441,7 @@ static ssize_t br3109_debugfs_read(struct file *file, char __user *userbuf,
 	ssize_t len = 0;
 	int ret;
 
+    // dev_info(&entry->phy->spi->dev, "%s :	line:%d debug:(cmd):0x%08X", __func__,__LINE__,entry->out_value);
 	if (entry->out_value) {
 		switch (entry->size) {
 		case 1:
@@ -3463,7 +3495,8 @@ static ssize_t br3109_debugfs_write(struct file *file,
 	ret = sscanf(buf, "%lli %i %i %i", &val, &val2, &val3, &val4);
 	if (ret < 1)
 		return -EINVAL;
-
+	
+    // dev_info(&phy->spi->dev, "%s :	line:%d debug:(cmd):%d, buf[%d]: %s\n", __func__,__LINE__,entry->cmd, count, buf);
 	switch (entry->cmd) {
 	case DBGFS_INIT:
 		if (!(ret == 1 && val == 1))
@@ -3685,7 +3718,8 @@ static int __br3109_of_get_u32(struct iio_dev *indio_dev,
 		  .size = size,
 		   .phy = phy,
 	};
-
+	// dev_info(&phy->spi->dev, "%s :	line:%d %s val %d %lld size:%d	defval:%lld", __func__,__LINE__, propname, tmp, tmp64, size, defval);
+	
 	return ret;
 }
 #define br3109_of_get_u32(iodev, dnp, name, def, outp) \
@@ -3946,7 +3980,7 @@ static int br3109_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	BR3109_OF_PROP("adi,jesd204-framer-b-lane0-id",
 			 &phy->talInit.jesd204Settings.framerB.lane0Id, 0);
 	BR3109_OF_PROP("adi,jesd204-framer-b-m",
-			 &phy->talInit.jesd204Settings.framerB.M, 4);
+			 &phy->talInit.jesd204Settings.framerB.M, 2);
 	BR3109_OF_PROP("adi,jesd204-framer-b-k",
 			 &phy->talInit.jesd204Settings.framerB.K, 32);
 	BR3109_OF_PROP("adi,jesd204-framer-b-f",
@@ -3962,11 +3996,11 @@ static int br3109_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	BR3109_OF_PROP("adi,jesd204-framer-b-serializer-lane-crossbar",
 			 &phy->talInit.jesd204Settings.framerB.serializerLaneCrossbar, 0xE4);
 	BR3109_OF_PROP("adi,jesd204-framer-b-lmfc-offset",
-			 &phy->talInit.jesd204Settings.framerB.lmfcOffset, 31);
+			 &phy->talInit.jesd204Settings.framerB.lmfcOffset, 0);
 	BR3109_OF_PROP("adi,jesd204-framer-b-new-sysref-on-relink",
 			 &phy->talInit.jesd204Settings.framerB.newSysrefOnRelink, 0);
 	BR3109_OF_PROP("adi,jesd204-framer-b-syncb-in-select",
-			 &phy->talInit.jesd204Settings.framerB.syncbInSelect, 1);
+			 &phy->talInit.jesd204Settings.framerB.syncbInSelect, 0);
 	BR3109_OF_PROP("adi,jesd204-framer-b-over-sample",
 			 &phy->talInit.jesd204Settings.framerB.overSample, 0);
 	BR3109_OF_PROP("adi,jesd204-framer-b-syncb-in-lvds-mode",
@@ -4252,11 +4286,11 @@ static int br3109_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	BR3109_OF_PROP("adi,orx-profile-rhb1-decimation",
 			 &phy->talInit.obsRx.orxProfile.rhb1Decimation, 2);
 	BR3109_OF_PROP("adi,orx-profile-orx-output-rate_khz",
-			 &phy->talInit.obsRx.orxProfile.orxOutputRate_kHz, 245760);
+			 &phy->talInit.obsRx.orxProfile.orxOutputRate_kHz, 491520);//245760
 	BR3109_OF_PROP("adi,orx-profile-rf-bandwidth_hz",
-			 &phy->talInit.obsRx.orxProfile.rfBandwidth_Hz, 200000000);
+			 &phy->talInit.obsRx.orxProfile.rfBandwidth_Hz, 400000000);//200000000
 	BR3109_OF_PROP("adi,orx-profile-rx-bbf3d-bcorner_khz",
-			 &phy->talInit.obsRx.orxProfile.rxBbf3dBCorner_kHz, 225000);
+			 &phy->talInit.obsRx.orxProfile.rxBbf3dBCorner_kHz, 450000);//225000
 	// BR3109_GET_PROFILE("adi,orx-profile-orx-low-pass-adc-profile",
 	// 		     phy->talInit.obsRx.orxProfile.orxLowPassAdcProfile);
 	// BR3109_GET_PROFILE("adi,orx-profile-orx-band-pass-adc-profile",
@@ -4286,7 +4320,7 @@ static int br3109_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	BR3109_OF_PROP("adi,obs-settings-framer-sel", &phy->talInit.obsRx.framerSel,
 			 1);
 	BR3109_OF_PROP("adi,obs-settings-obs-rx-channels-enable",
-			 &phy->talInit.obsRx.obsRxChannelsEnable, 3);
+			 &phy->talInit.obsRx.obsRxChannelsEnable, 1);
 	BR3109_OF_PROP("adi,obs-settings-obs-rx-lo-source",
 			 &phy->talInit.obsRx.obsRxLoSource, 0);
 
@@ -4308,7 +4342,8 @@ static int br3109_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	BR3109_OF_PROP("adi,tx-profile-tx-int5-interpolation",
 			 &phy->talInit.tx.txProfile.txInt5Interpolation, 1);
 	BR3109_OF_PROP("adi,tx-profile-tx-input-rate_khz",
-			 &phy->talInit.tx.txProfile.txInputRate_kHz, 245760);
+			 &phy->talInit.tx.txProfile.txInputRate_kHz, 245760); 
+	
 	BR3109_OF_PROP("adi,tx-profile-primary-sig-bandwidth_hz",
 			 &phy->talInit.tx.txProfile.primarySigBandwidth_Hz, 100000000);
 	BR3109_OF_PROP("adi,tx-profile-rf-bandwidth_hz",
@@ -4343,8 +4378,7 @@ static int br3109_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 			 &phy->talInit.clocks.rfPllUseExternalLo, 0);
 	BR3109_OF_PROP("adi,dig-clocks-rf-pll-phase-sync-mode",
 			 &phy->talInit.clocks.rfPllPhaseSyncMode, 0);
-
-
+	
 	BR3109_OF_PROP("adi,trx-pll-lo-frequency_hz", &phy->trx_lo_frequency,
 			 2400000000ULL);
 	BR3109_OF_PROP("adi,aux-pll-lo-frequency_hz", &phy->aux_lo_frequency,
@@ -4369,7 +4403,7 @@ static int br3109_parse_profile(struct br3109_rf_phy *phy,
 	char *line, *ptr = data;
 	unsigned int int32, int32_2;
 	int ret, num = 0, version = 0, max, sint32, retval;
-
+	dev_info(&phy->spi->dev, "%s : %d data0:0x%08X	size:%d\n",__func__, __LINE__, data[0], size);
 #define GET_TOKEN(x, n) \
 		{ret = sscanf(line, " <" #n "=%u>", &int32);\
 		if (ret == 1) { \
@@ -4410,8 +4444,8 @@ static int br3109_parse_profile(struct br3109_rf_phy *phy,
 		if (line[0] == '#' || line[0] == '\r' ||  line[0] == '\0')
 			continue;
 
-		if (!header && strstr(line, "<profile BR3109")) {
-			ret = sscanf(line, " <profile BR3109 version=%d", &version);
+		if (!header && strstr(line, "<profile ADRV9009")) {
+			ret = sscanf(line, " <profile ADRV9009 version=%d", &version);
 
 			if (ret == 1 && version == 1)
 				header = 1;
@@ -4778,7 +4812,7 @@ br3109_profile_bin_write(struct file *filp, struct kobject *kobj,
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
 	struct br3109_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
-
+	// dev_info(&phy->spi->dev, "%s : %d off:%lld	size:%d,bufsize:%d\n",__func__, __LINE__, off, count,bin_attr->size);
 	if (off == 0) {
 		if (phy->bin_attr_buf == NULL) {
 			phy->bin_attr_buf = devm_kzalloc(&phy->spi->dev,
@@ -4797,8 +4831,6 @@ br3109_profile_bin_write(struct file *filp, struct kobject *kobj,
 	ret = br3109_parse_profile(phy, phy->bin_attr_buf, off + count);
 	if (ret < 0)
 		return ret;
-
-
 	mutex_lock(&phy->indio_dev->mlock);
 
 	br3109_shutdown(phy);
@@ -4817,6 +4849,9 @@ br3109_profile_bin_read(struct file *filp, struct kobject *kobj,
 			  struct bin_attribute *bin_attr,
 			  char *buf, loff_t off, size_t count)
 {
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct br3109_rf_phy *phy = iio_priv(indio_dev);
+	dev_info(&phy->spi->dev, "%s : %d data0:0x%08X	size:%d\n",__func__, __LINE__, buf[0], count);
 	if (off)
 		return 0;
 
@@ -4843,6 +4878,7 @@ static int br3109_load_all_gt(struct br3109_rf_phy *phy,
 				struct gain_table_info *table)
 {
 	int i, ret;
+	dev_info(&phy->spi->dev, "%s : %d\n",__func__, __LINE__);
 
 	if (!table)
 		return -ENODEV;
@@ -4877,6 +4913,7 @@ static struct gain_table_info *br3109_parse_gt(struct br3109_rf_phy *phy,
 	br3109OrxGainTable_t *gainTablePtr;
 
 	header_found = false;
+	dev_info(&phy->spi->dev, "%s : %d data0:0x%08X	size:%d\n",__func__, __LINE__, data[0], size);
 
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size)
@@ -4898,7 +4935,9 @@ static struct gain_table_info *br3109_parse_gt(struct br3109_rf_phy *phy,
 				     &model , type, &dest, &start, &end);
 
 			if (ret == 5) {
-				if (!(model == 9009 || model == 9008)) {
+					dev_warn(&phy->spi->dev,
+						 "%d=======================Gain table must be monotonic", model);
+				if (!(model == 3109 ||model == 9009 || model == 9008)) {
 					ret = -EINVAL;
 					goto out;
 				}
@@ -5006,6 +5045,7 @@ br3109_gt_bin_write(struct file *filp, struct kobject *kobj,
 	struct br3109_rf_phy *phy = iio_priv(indio_dev);
 	struct gain_table_info *table;
 	int ret;
+	dev_info(&phy->spi->dev, "%s : %d data0:0x%08X	size:%d\n",__func__, __LINE__, buf[0], count);
 
 	if (off == 0) {
 		if (phy->bin_gt_attr_buf == NULL) {
@@ -5181,19 +5221,24 @@ static int br3109_probe(struct spi_device *spi)
 	const char *name;
 	int ret;
 	uint32_t rev;
+	// uint32_t *testp;
+	// union br3109_es2_f
+	// {
+	// 	uint8_t dat[4];
+	// 	uint32_t firm;
+	// }testfirm;
+	
 	br3109ArmVersionInfo_t talArmVersionInfo;
 	u32 api_vers[4];
 
 	int id = spi_get_device_id(spi)->driver_data;
 
-	dev_info(&spi->dev, "%s : enter", __func__);
+	dev_info(&spi->dev, "%s : enter id:%d", __func__, id);
 
 	clk = devm_clk_get(&spi->dev, (id == ID_ADRV90082) ?
 			   "jesd_tx_clk" : "jesd_rx_clk");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
-
-    dev_info(&spi->dev, "%s : enter at debug point 1#", __func__);
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*phy));
 	if (indio_dev == NULL)
@@ -5204,12 +5249,10 @@ static int br3109_probe(struct spi_device *spi)
 	phy->spi = spi;
 	phy->spi_device_id = id;
 
-    dev_info(&spi->dev, "%s : enter at debug point 2#", __func__);
 	ret = br3109_phy_parse_dt(indio_dev, &spi->dev);
 	if (ret < 0)
 		return -ret;
 
-    dev_info(&spi->dev, "%s : enter at debug point 3#", __func__);
 	phy->talDevice = &phy->talise_device;
 	phy->linux_hal.spi = spi;
 	phy->linux_hal.log_level = BRHAL_LOG_ERR | BRHAL_LOG_WARN;
@@ -5217,8 +5260,7 @@ static int br3109_probe(struct spi_device *spi)
 
 	phy->linux_hal.reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 
-	phy->sysref_req_gpio = devm_gpiod_get(&spi->dev, "sysref-req",
-					      GPIOD_OUT_HIGH);
+	phy->sysref_req_gpio = devm_gpiod_get(&spi->dev, "sysref-req", GPIOD_OUT_HIGH);
 
 	if (id == ID_ADRV90082)
 		phy->jesd_tx_clk = clk;
@@ -5240,7 +5282,6 @@ static int br3109_probe(struct spi_device *spi)
 		return PTR_ERR(phy->fmc_clk);
 
 	phy->fmc2_clk = devm_clk_get(&spi->dev, "fmc2_clk");
-
 	phy->sysref_dev_clk = devm_clk_get(&spi->dev, "sysref_dev_clk");
 	phy->sysref_fmc_clk = devm_clk_get(&spi->dev, "sysref_fmc_clk");
 
@@ -5258,40 +5299,38 @@ static int br3109_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	// if (of_property_read_string(spi->dev.of_node, "arm-firmware-name", &name))
-	// 	switch (id) {
-	// 	case ID_BR3109:
-	// 	case ID_BR3109_X2:
-	// 		name = FIRMWARE;
-	// 		break;
-	// 	case ID_ADRV90081:
-	// 		name = FIRMWARE_RX;
-	// 		break;
-	// 	case ID_ADRV90082:
-	// 		name = FIRMWARE_TX;
-	// 		break;
-	// 	default:
-	// 		return -EINVAL;
-	// 	}
+	if (of_property_read_string(spi->dev.of_node, "arm-firmware-name", &name))
+		switch (id) {
+		case ID_BR3109:
+		case ID_BR3109_X2:
+			name = FIRMWARE;
+			break;
+		// case ID_ADRV90081:
+		// 	name = FIRMWARE_RX;
+		// 	break;
+		// case ID_ADRV90082:
+		// 	name = FIRMWARE_TX;
+		// 	break;
+		default:
+			return -EINVAL;
+		 }
 
-	// ret = request_firmware(&phy->fw, name, &spi->dev);
+	ret = request_firmware(&phy->fw, name, &spi->dev);
+	if (ret) {
+		dev_err(&spi->dev,
+			"request_firmware() failed with %d\n", ret);
+		// return ret;
+	}
+	// if (of_property_read_string(spi->dev.of_node, "stream-firmware-name", &name))
+	// 	name = STREAM;
+
+	// ret = request_firmware(&phy->stream, name, &spi->dev);
 	// if (ret) {
 	// 	dev_err(&spi->dev,
 	// 		"request_firmware() failed with %d\n", ret);
 	// 	return ret;
 	// }
-
-	if (of_property_read_string(spi->dev.of_node, "stream-firmware-name", &name))
-		name = STREAM;
-
-	ret = request_firmware(&phy->stream, name, &spi->dev);
-	if (ret) {
-		dev_err(&spi->dev,
-			"request_firmware() failed with %d\n", ret);
-		return ret;
-	}
-
-    dev_info(&spi->dev, "%s : enter at debug point 4#", __func__);
+#if 1
 	ret = br3109_setup(phy);
 	if (ret < 0) {
 		/* Try once more */
@@ -5299,8 +5338,7 @@ static int br3109_probe(struct spi_device *spi)
 		if (ret < 0)
 			goto out_unregister_notifier;
 	}
-
-    dev_info(&spi->dev, "%s : enter at debug point 5#", __func__);
+#endif
 	if (has_rx(phy))
 		br3109_clk_register(phy, "-rx_sampl_clk", NULL, NULL,
 				CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED,
@@ -5353,16 +5391,16 @@ static int br3109_probe(struct spi_device *spi)
 		indio_dev->channels = br3109_phy_chan;
 		indio_dev->num_channels = ARRAY_SIZE(br3109_phy_chan);
 		break;
-	case ID_ADRV90081:
-		indio_dev->info = &adrv90081_phy_info;
-		indio_dev->channels = adrv90081_phy_chan;
-		indio_dev->num_channels = ARRAY_SIZE(adrv90081_phy_chan);
-		break;
-	case ID_ADRV90082:
-		indio_dev->info = &adrv90082_phy_info;
-		indio_dev->channels = adrv90082_phy_chan;
-		indio_dev->num_channels = ARRAY_SIZE(adrv90082_phy_chan);
-		break;
+	// case ID_ADRV90081:
+	// 	indio_dev->info = &adrv90081_phy_info;
+	// 	indio_dev->channels = adrv90081_phy_chan;
+	// 	indio_dev->num_channels = ARRAY_SIZE(adrv90081_phy_chan);
+	// 	break;
+	// case ID_ADRV90082:
+	// 	indio_dev->info = &adrv90082_phy_info;
+	// 	indio_dev->channels = adrv90082_phy_chan;
+	// 	indio_dev->num_channels = ARRAY_SIZE(adrv90082_phy_chan);
+	// 	break;
 	default:
 		ret = -EINVAL;
 		goto out_clk_del_provider;
@@ -5401,18 +5439,18 @@ static int br3109_probe(struct spi_device *spi)
 			goto out_remove_sysfs_bin;
 		}
 	}
-
+#if 1
 	BR3109_getArmVersion_v2(phy->talDevice, &talArmVersionInfo);
 	BR3109_getApiVersion(phy->talDevice, &api_vers[0], &api_vers[1], &api_vers[2],
 			     &api_vers[3]);
 	BR3109_getDeviceRev(phy->talDevice, &rev);
-
 	dev_info(&spi->dev,
 		 "%s: %s Rev %d, Firmware %u.%u.%u API version: %u.%u.%u.%u successfully initialized",
 		 __func__, spi_get_device_id(spi)->name, rev, talArmVersionInfo.majorVer,
 		 talArmVersionInfo.minorVer, talArmVersionInfo.rcVer,
 		 api_vers[0], api_vers[1], api_vers[2], api_vers[3]);
 
+#endif
 	return 0;
 
 out_remove_sysfs_bin:
@@ -5430,6 +5468,8 @@ out_disable_clocks:
 out_unregister_notifier:
 	release_firmware(phy->fw);
 	release_firmware(phy->stream);
+    dev_info(&spi->dev, "%s :	line:%d ===================end err at debug point 1#", __func__,__LINE__);
+	return 0;
 
 	return ret;
 }
@@ -5453,12 +5493,28 @@ static int br3109_remove(struct spi_device *spi)
 
 	return 0;
 }
-
+#if 0
+static const struct spi_device_id br3109_id[] = {
+	{"adrv9009", 0},
+	{}
+};
+MODULE_DEVICE_TABLE(spi, br3109_id);
+static struct spi_driver br3109_driver = {
+	.driver = {
+		.name	= "br3109",
+		.owner	= THIS_MODULE,
+	},
+	.probe		= br3109_probe,
+	.remove		= br3109_remove,
+	.id_table	= br3109_id,
+};
+module_spi_driver(br3109_driver);
+MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
+MODULE_DESCRIPTION("Analog Devices BR3109 ADC");
+MODULE_LICENSE("GPL v2");
+#else
 static const struct spi_device_id br3109_id[] = {
 	{"adrv9009", ID_BR3109},
-	{"adrv9008-1", ID_ADRV90081},
-	{"adrv9008-2", ID_ADRV90082},
-	{"adrv9009-x2", ID_BR3109_X2},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, br3109_id);
@@ -5475,5 +5531,6 @@ static struct spi_driver br3109_driver = {
 module_spi_driver(br3109_driver);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
-MODULE_DESCRIPTION("Analog Devices BR3109 ADC");
+MODULE_DESCRIPTION("Analog Devices ADRV9009 ADC");
 MODULE_LICENSE("GPL v2");
+#endif

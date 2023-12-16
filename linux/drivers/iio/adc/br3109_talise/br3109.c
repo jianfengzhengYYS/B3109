@@ -54,7 +54,7 @@
 #include "br3109_gpio.h"
 #include "br3109_config.h"
 
-#define BR3109_VERBOSE 0
+#define BR3109_VERBOSE 1
 #define BR3109_LOGGING 0xF      /*LogLevel Set to All*/
 #define BR3109_RESET_ON_ERR  1   /*API Reset on Severe Errors*/
 
@@ -594,8 +594,8 @@ uint32_t BR3109_initialize(br3109Device_t *device, br3109Init_t *init)
 #endif
 		
 #if 1
-	retVal = BR3109_armSpiCmd_Jesd_config(device, JESD_TX);
-	IF_ERR_RETURN_U32(retVal);
+	// retVal = BR3109_armSpiCmd_Jesd_config(device, JESD_TX);
+	// IF_ERR_RETURN_U32(retVal);
 	/* If Valid Rx Profile or valid ObsRx profile, setup serializers */
 	if ((device->devStateInfo.profilesValid & RX_PROFILE_VALID) || (device->devStateInfo.profilesValid & ORX_PROFILE_VALID)) {
 		retVal = (talRecoveryActions_t)BR3109_setupSerializers(device, init);
@@ -857,7 +857,7 @@ uint32_t BR3109_initialize(br3109Device_t *device, br3109Init_t *init)
 	device->devStateInfo.devState = (br3109States_t)(device->devStateInfo.devState | TAL_STATE_INITIALIZED);
 	device->devStateInfo.initializedChannels = (init->rx.rxChannels & 3);
 	device->devStateInfo.initializedChannels |= ((init->obsRx.obsRxChannelsEnable & 3) << 2);
-	device->devStateInfo.initializedChannels |= ((init->tx.txChannels & 3) << 6);
+	device->devStateInfo.initializedChannels |= ((init->tx.txChannels & 3) << 4);
 	device->devStateInfo.txInputRate_kHz = init->tx.txProfile.txInputRate_kHz;
 	device->devStateInfo.rxDdcMode = init->rx.rxProfile.rxDdcMode;
 
@@ -887,9 +887,9 @@ uint32_t BR3109_initialize(br3109Device_t *device, br3109Init_t *init)
 //TODO
 	retVal = BR3109_ArmWriteField(device, BR3109_ADDR_APB_DIG_MUX_LOOPBACK_FIXDATA, 0, (0x1 << 16), 0);
 	IF_ERR_RETURN_U32(retVal);
-	uint32_t regdat[4] = {0x00000C00, 0x00000C00, 0x00000C00, 0x00000C00};  //// 2.5dbs 衰减
-	retVal = BR3109_armMemoryCmd_blk_write(device, APB_TX_DGAIN_BASEADDR + 0x0C, regdat, 4);
-	IF_ERR_RETURN_U32(retVal);
+	// uint32_t regdat[4] = {0x00000C00, 0x00000C00, 0x00000C00, 0x00000C00};  //// 2.5dbs 衰减
+	// retVal = BR3109_armMemoryCmd_blk_write(device, APB_TX_DGAIN_BASEADDR + 0x0C, regdat, 4);
+	// IF_ERR_RETURN_U32(retVal);
 //	Globle_conf_t config_data={0};//全局配置下发
 //	config_data.rf_pll_Khz = init->clocks.clkPllVcoFreq_kHz;
 //	retVal = brSpiWriteWordsBlock(device->devHalInfo, BR3109_ADDR_ARM_GLOBLE_CONFIG_DATA, &config_data, (sizeof(config_data)+3)/4);
@@ -1457,51 +1457,51 @@ uint32_t BR3109_verifyProfiles(br3109Device_t *device, br3109Init_t *init)
 	hsDigClk_kHz = (hsDigClkDiv2_Hz / 500); /* time 2 and convert from Hz to kHz */
 	/* Verify Tx profile is valid */
 	if (txHsDigClk_kHz > 0) {
-		if ((rxHsDigClk_kHz > 0) && (txHsDigClk_kHz != rxHsDigClk_kHz)) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_TXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if ((rxHsDigClk_kHz > 0) && (txHsDigClk_kHz != rxHsDigClk_kHz)) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_TXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
-		if ((orxHsDigClk_kHz > 0) && (txHsDigClk_kHz != orxHsDigClk_kHz)) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_TXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if ((orxHsDigClk_kHz > 0) && (txHsDigClk_kHz != orxHsDigClk_kHz)) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_TXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
-		if (hsDigClk_kHz != txHsDigClk_kHz) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_TXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if (hsDigClk_kHz != txHsDigClk_kHz) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_TXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
 		device->devStateInfo.profilesValid |= TX_PROFILE_VALID;
 	}
 
 	/* Verify Rx profile is valid */
 	if (rxHsDigClk_kHz > 0) {
-		if ((txHsDigClk_kHz > 0) && (rxHsDigClk_kHz != txHsDigClk_kHz)) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_RXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if ((txHsDigClk_kHz > 0) && (rxHsDigClk_kHz != txHsDigClk_kHz)) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_RXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
-		if ((orxHsDigClk_kHz > 0) && (rxHsDigClk_kHz != orxHsDigClk_kHz)) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_RXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if ((orxHsDigClk_kHz > 0) && (rxHsDigClk_kHz != orxHsDigClk_kHz)) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_RXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
-		if (hsDigClk_kHz != rxHsDigClk_kHz) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_RXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if (hsDigClk_kHz != rxHsDigClk_kHz) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_RXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
 		device->devStateInfo.profilesValid |= RX_PROFILE_VALID;
 	}
 
 	/* Verify ORx profile is valid */
 	if (orxHsDigClk_kHz > 0) {
-		if ((txHsDigClk_kHz > 0) && (orxHsDigClk_kHz != txHsDigClk_kHz)) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_ORXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if ((txHsDigClk_kHz > 0) && (orxHsDigClk_kHz != txHsDigClk_kHz)) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_ORXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
-		if ((rxHsDigClk_kHz > 0) && (orxHsDigClk_kHz != rxHsDigClk_kHz)) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_ORXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if ((rxHsDigClk_kHz > 0) && (orxHsDigClk_kHz != rxHsDigClk_kHz)) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_ORXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
-		if (hsDigClk_kHz != orxHsDigClk_kHz) {
-			return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_ORXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
-		}
+		// if (hsDigClk_kHz != orxHsDigClk_kHz) {
+		// 	return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM, TAL_ERR_VERPFILE_ORXHSCLK, retVal, TALACT_ERR_CHECK_PARAM);
+		// }
 
 		device->devStateInfo.profilesValid |= ORX_PROFILE_VALID;
 	}
@@ -1584,7 +1584,7 @@ uint32_t BR3109_initDigitalClocks(br3109Device_t *device, br3109DigClocks_t *clo
 	halError = brWriteToLog(device->devHalInfo, BRHAL_LOG_MSG, TAL_ERR_OK, "BR3109_initDigitalClocks()\n");
 	retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_LOG, halError, retVal, TALACT_WARN_RESET_LOG);
 #endif
-	if (clockSettings->deviceClock_kHz > 10000 && clockSettings->deviceClock_kHz <= 200000) {
+	if (clockSettings->deviceClock_kHz > 10000 && clockSettings->deviceClock_kHz <= 1000000) {
 		regda = clockSettings->deviceClock_kHz*1000;
 		retVal = brSpiWriteWordsBlock(device->devHalInfo, BR3109_ADDR_REFCLK_FREQ,  &regda, 1);
 		IF_ERR_RETURN_U32(retVal);

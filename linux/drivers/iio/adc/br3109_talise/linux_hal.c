@@ -33,11 +33,11 @@ brHalErr_t BRHAL_writeToLog(void *devHalInfo, brLogLevel_t logLevel, uint32_t er
 	}
 	else if((devHalData->log_level & BRHAL_LOG_MSG) && (logLevel == BRHAL_LOG_MSG))
 	{
-		dev_info(&devHalData->spi->dev, "MESSAGE: %d: %s",(int)errorCode, comment);
+		// dev_info(&devHalData->spi->dev, "MESSAGE: %d: %s",(int)errorCode, comment);
 	}
 	else
 	{
-		dev_warn(&devHalData->spi->dev, "Undefined Log Level: 0x%X: %d: %s", logLevel, (int)errorCode, comment);
+		// dev_warn(&devHalData->spi->dev, "Undefined Log Level: 0x%X: %d: %s", logLevel, (int)errorCode, comment);
 	}
 
 	return BRHAL_OK;
@@ -164,11 +164,11 @@ brHalErr_t BRHAL_spiReadWord(void *devHalInfo, uint32_t addr, uint32_t *readdata
 		*readdata = (data[0]<<24)|(data[1]<<16)|(data[2]<<8)|data[3];
 	}
 
-	if (devHalData->log_level & BRHAL_LOG_SPI)
-	{
-		//dev_err(&devHalData->spi->dev, "SPIRead: ADDR:0x%03X, ReadData:0x%08X\n",
-		//	addr, *readdata);
-	}
+	// if (devHalData->log_level & BRHAL_LOG_SPI)
+	// {
+	// 	dev_err(&devHalData->spi->dev, "SPIRead: ADDR:0x%03X, ReadData:0x%08X\n",
+	// 		addr, *readdata);
+	// }
 
 	return BRHAL_OK;
 }

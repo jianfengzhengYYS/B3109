@@ -602,6 +602,23 @@ uint32_t BR3109_armSpiCmd_Jesd_config(br3109Device_t *device, uint8_t jesdtx_rx)
 	IF_ERR_RETURN_U32(retVal);
 	return retVal;
 }
+/**
+ * state: 0 关闭自动jesd rx reset 0x1 开启自动reset模式1  0x2：开启自动reset模式2
+*/
+uint32_t BR3109_armSpiCmd_Jesd_state_autorelink(br3109Device_t *device, uint8_t state)
+{
+	talRecoveryActions_t retVal = TALACT_NO_ACTION;
+	uint32_t cmdstatword;
+	uint32_t cmdbuf[1]={0};
+	retVal = BR3109_waitArmCmdStatus(device, 0, &cmdstatword, 10000000,WAITINITCALS_INTERVAL_US);
+	IF_ERR_RETURN_U32(retVal);
+	cmdbuf[0] = state;
+	retVal= BR3109_sendArmCommand(device, TALAPI_ARMSPI_CMD_JESD_STATE_SET, cmdbuf, 1);
+	IF_ERR_RETURN_U32(retVal);
+	retVal = BR3109_waitArmCmdStatus(device, 0, &cmdstatword, 10000000,WAITINITCALS_INTERVAL_US);
+	IF_ERR_RETURN_U32(retVal);
+	return retVal;
+}
 
 uint32_t BR3109_armSpiCmd_setrf_freq(br3109Device_t *device, uint32_t freq_KHz)
 {
